@@ -12,14 +12,11 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-export default function MedicationsScreen({ route }) {
-    const { editMedication } = route.params || {};
-    const navigation = useNavigation();
+export default function MedicationsScreen() {
     const [name, setName] = useState('');
     const [dosage, setDosage] = useState('');
     const [note, setNote] = useState('');
@@ -33,32 +30,9 @@ export default function MedicationsScreen({ route }) {
         loadData();
     }, []);
 
-    // Reload data whenever the screen comes into focus
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', () => {
-            console.log('MedicationsScreen focused - reloading data');
-            loadData();
-        });
 
-        return unsubscribe;
-    }, [navigation]);
 
-    // Pre-fill form if editing existing medication
-    useEffect(() => {
-        if (editMedication) {
-            setName(editMedication.name || '');
-            setDosage(editMedication.dosage || '');
-            setNote(editMedication.note || '');
-            setColor(editMedication.color || '#4e73df');
-
-            // Ensure all times are proper Date objects
-            const formattedTimes = (editMedication.times || [{ id: Date.now(), time: new Date() }]).map(t => ({
-                id: t.id,
-                time: ensureDateObject(t.time)
-            }));
-            setTimes(formattedTimes);
-        }
-    }, [editMedication]);
+    // Form is always empty for creating new medications
 
     const loadData = async () => {
         try {
@@ -104,6 +78,9 @@ export default function MedicationsScreen({ route }) {
         setTimes((prev) => [...prev, { id: Date.now(), time: new Date() }]);
     };
 
+
+
+
     const ensureDateObject = (dateValue) => {
         if (dateValue instanceof Date) {
             return dateValue;
@@ -120,14 +97,22 @@ export default function MedicationsScreen({ route }) {
         setShowPickerId(null);
     };
 
+    const deleteTime = (id) => {
+        if (times.length > 1) {
+            setTimes((prev) => prev.filter((t) => t.id !== id));
+        } else {
+            Alert.alert('Cannot Delete', 'At least one time slot is required.');
+        }
+    };
+
     const saveMedication = async () => {
         if (!name.trim()) {
             Alert.alert('Please enter a medication name.');
             return;
         }
 
-        // Check if medication name conflicts with existing medications (but allow if editing the same one)
-        const existingMed = medications.find((m) => m.name === name.trim() && m.id !== editMedication?.id);
+        // Check if medication name conflicts with existing medications
+        const existingMed = medications.find((m) => m.name === name.trim());
         if (existingMed) {
             Alert.alert('This medication already exists in your list');
             return;
@@ -147,38 +132,23 @@ export default function MedicationsScreen({ route }) {
         };
 
         try {
-            let updatedMeds;
-
-            if (editMedication) {
-                // Update existing medication
-                updatedMeds = medications.map(med =>
-                    med.id === editMedication.id
-                        ? { ...editMedication, ...medicationData }
-                        : med
-                );
-                Alert.alert('Medication updated successfully!');
-            } else {
-                // Create new medication
-                const newMed = {
-                    id: Date.now(),
-                    ...medicationData,
-                };
-                updatedMeds = [...medications, newMed];
-                Alert.alert('Medication added and reminders set!');
-            }
+            // Create new medication
+            const newMed = {
+                id: Date.now(),
+                ...medicationData,
+            };
+            const updatedMeds = [...medications, newMed];
 
             await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
             setMedications(updatedMeds);
-            console.log('Saved medications to storage:', updatedMeds); // Debug log
+            console.log('Saved medications to storage:', updatedMeds);
 
-            // Schedule/Cancel notifications for the medication
-            await updateMedicationNotifications(editMedication, medicationData, times);
+            // Schedule notifications for the new medication
+            await updateMedicationNotifications(null, medicationData, times);
 
+            Alert.alert('Success', 'Medication added and reminders set!');
             Keyboard.dismiss();
             clearForm();
-
-            // Navigate back to Home tab after saving (this will trigger focus event)
-            navigation.navigate('Home');
         } catch (e) {
             console.warn('Save error', e);
             Alert.alert('Failed to save medication');
@@ -189,7 +159,7 @@ export default function MedicationsScreen({ route }) {
         setName('');
         setDosage('');
         setNote('');
-        setColor('');
+        setColor('#4e73df'); // Reset to default color
         setTimes([{ id: Date.now(), time: new Date() }]);
     };
 
@@ -204,21 +174,35 @@ export default function MedicationsScreen({ route }) {
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.container}>
-                <Text style={styles.title}>{editMedication ? 'Edit Medication' : 'Add medicines'}</Text>
+                <Text style={styles.title}>Add medicines</Text>
 
             <TextInput style={styles.input} placeholder="pill name" value={name} onChangeText={setName} />
 
             <TextInput
                 style={styles.input}
-                placeholder="dosage"
-                keyboardType="numeric"
+                placeholder="dosage (e.g., 500mg, 2 tablets, 1ml)"
                 value={dosage}
                 onChangeText={setDosage}
             />
 
             <TextInput style={styles.input} placeholder="note (e.g., after meal)" value={note} onChangeText={setNote} />
 
-            <TextInput style={styles.input} placeholder="color" value={color} onChangeText={setColor} />
+            <Text style={styles.subTitle}>Choose tag color</Text>
+            <View style={styles.colorContainer}>
+                        {['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'].map(
+                        (c) => (
+                        <TouchableOpacity
+                          key={c}
+                          style={[
+                      styles.colorCircle,
+                      { backgroundColor: c },
+                      color === c && styles.selectedColor,
+        ]}
+                    onPress={() => setColor(c)}
+                  />
+                )
+              )}
+            </View>
 
             <Text style={styles.subTitle}>Time</Text>
 
@@ -227,6 +211,12 @@ export default function MedicationsScreen({ route }) {
                     <TouchableOpacity style={styles.timeButton} onPress={() => setShowPickerId(t.id)}>
                         <Text>{formatTime(t.time)}</Text>
                     </TouchableOpacity>
+
+                    {times.length > 1 && (
+                        <TouchableOpacity style={styles.delButton} onPress={() => deleteTime(t.id)}>
+                            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>×</Text>
+                        </TouchableOpacity>
+                    )}
 
                     {showPickerId === t.id && (
                         <DateTimePicker
@@ -248,9 +238,7 @@ export default function MedicationsScreen({ route }) {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.saveButton} onPress={saveMedication}>
-                <Text style={{ color: 'white', fontSize: 18 }}>
-                    {editMedication ? 'Update' : 'Save'}
-                </Text>
+                <Text style={{ color: 'white', fontSize: 18 }}>Save</Text>
             </TouchableOpacity>
         </ScrollView>
     </SafeAreaView>
@@ -271,6 +259,12 @@ const styles = StyleSheet.create({
     subTitle: { fontSize: 16, marginTop: 12, marginBottom: 8 },
     timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     timeButton: { padding: 10, backgroundColor: '#eee', borderRadius: 6 },
+    delButton: {
+        padding: 10,
+        backgroundColor: '#dc3545',
+        borderRadius: 6,
+        marginLeft: 10,
+    },
     addButton: {
         backgroundColor: '#4e73df',
         width: 48,
@@ -288,5 +282,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginTop: 18,
     },
+
+    colorContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 12,
+      },
+      colorCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 10,
+        marginBottom: 10,
+        borderWidth: 2,
+        borderColor: 'transparent',
+      },
+      selectedColor: {
+        borderColor: '#000',
+        borderWidth: 3,
+      },
+      
 });
 

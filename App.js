@@ -1,9 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { createStackNavigator } from '@react-navigation/stack';
 import TabNavigator from './Navigation/TabNavigator';
+import EditMedicationScreen from './screens/EditMedicationScreen';
 import * as Notifications from 'expo-notifications';
 import { Platform, StatusBar } from 'react-native';
+
+const Stack = createStackNavigator();
 
 
 
@@ -58,7 +62,10 @@ export default function App() {
 return (
  <SafeAreaProvider>
    <NavigationContainer>
-     <TabNavigator />
+     <Stack.Navigator screenOptions={{ headerShown: false }}>
+       <Stack.Screen name="Main" component={TabNavigator} />
+       <Stack.Screen name="EditMedication" component={EditMedicationScreen} />
+     </Stack.Navigator>
      <StatusBar style="auto" />
    </NavigationContainer>
  </SafeAreaProvider>

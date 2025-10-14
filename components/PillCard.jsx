@@ -1,131 +1,106 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 
-const PillCard = ({ medication, onEdit, onDelete }) => {
+const screenWidth = Dimensions.get('window').width;
+
+const PillCard = ({ medication, onEdit }) => {
+
 
   const handleEdit = () => {
-    console.log('PillCard edit pressed for:', medication.name); // Debug log
+    console.log('PillCard edit pressed for:', medication.name);
     if (onEdit) {
       onEdit(medication);
     }
   };
 
-  const handleDelete = () => {
-    if (onDelete) {
-      Alert.alert(
-        'Delete Medication',
-        `Are you sure you want to delete ${medication.name}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => onDelete(medication.id) }
-        ]
-      );
-    }
-  };
 
-  const handleLongPress = () => {
-    Alert.alert(
-      'Medication Options',
-      `What would you like to do with ${medication.name}?`,
-      [
-        { text: 'Edit', onPress: handleEdit },
-        { text: 'Delete', style: 'destructive', onPress: handleDelete },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+  const formatTime = (times) => {
+    if (!times || times.length === 0) return '--:--';
+    return times.map(t => {
+      const time = t.time instanceof Date ? t.time : new Date(t.time);
+      return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+    }).join(', ');
   };
 
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={handleEdit}
-      onLongPress={handleLongPress}
       activeOpacity={0.7}
       testID={`medication-card-${medication.id}`}
     >
-      <View style={styles.header}>
+ 
+      <View style={[styles.colorBar, { backgroundColor: medication.color || '#4e73df' }]} />
+
+
+      <View style={styles.center}>
         <Text style={styles.name}>{medication.name}</Text>
-        <View style={[styles.colorBadge, { backgroundColor: medication.color || '#4e73df' }]} />
+        <Text style={styles.note}>{medication.note || 'No notes'}</Text>
       </View>
 
-      {medication.dosage && (
-        <Text style={styles.dosage}>Dosage: {medication.dosage}</Text>
-      )}
 
-      {medication.note && (
-        <Text style={styles.note}>{medication.note}</Text>
-      )}
-
-      {medication.times && medication.times.length > 0 && (
-        <View style={styles.timesContainer}>
-          <Text style={styles.timesLabel}>Times:</Text>
-          <Text style={styles.times}>
-            {medication.times.map(t => {
-              const time = t.time instanceof Date ? t.time : new Date(t.time);
-              return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-            }).join(', ')}
-          </Text>
-        </View>
-      )}
-
+      <View style={styles.right}>
+        <Text style={styles.dosage}>{medication.dosage || ''}</Text>
+        <Text style={styles.times}>{formatTime(medication.times)}</Text>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    width: screenWidth * 0.92,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginVertical: 8,
+    marginHorizontal: screenWidth * 0.04,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  colorBar: {
+    width: 8,
+    height: '100%',
+    borderRadius: 4,
+    marginRight: 14,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
   },
   name: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     color: '#333',
-    flex: 1,
-  },
-  colorBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  dosage: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
   },
   note: {
-    fontSize: 14,
-    color: '#888',
-    fontStyle: 'italic',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#777',
+    marginTop: 3,
   },
-  timesContainer: {
-    marginTop: 4,
+  right: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
-  timesLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4e73df',
-    marginBottom: 2,
+  dosage: {
+    fontSize: 15,
+    color: '#5a7dda',
+    fontWeight: '600',
   },
   times: {
-    fontSize: 14,
-    color: '#4e73df',
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+    textAlign: 'right',
   },
 });
+
 
 export default PillCard;

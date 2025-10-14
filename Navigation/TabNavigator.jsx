@@ -12,11 +12,7 @@ export default function TabNavigator() {
  return (
  <Tab.Navigator screenOptions={{ headerShown: false }}>
  <Tab.Screen name="Home" component={HomeScreen} />
- <Tab.Screen
-   name="Medications"
-   component={MedicationsScreen}
-   initialParams={{ editMedication: null }}
- />
+ <Tab.Screen name="Medications" component={MedicationsScreen} />
  <Tab.Screen name="MyPage" component={MyPageScreen} />
  </Tab.Navigator>
  );
