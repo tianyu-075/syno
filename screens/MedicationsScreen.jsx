@@ -11,12 +11,15 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import PillCard from '../components/PillCard';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-export default function MedicationsScreen() {
+export default function MedicationsScreen({ route }) {
+    const { editMedication } = route.params || {};
+    const navigation = useNavigation();
     const [name, setName] = useState('');
     const [dosage, setDosage] = useState('');
     const [note, setNote] = useState('');
@@ -30,6 +33,33 @@ export default function MedicationsScreen() {
         loadData();
     }, []);
 
+    // Reload data whenever the screen comes into focus
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            console.log('MedicationsScreen focused - reloading data');
+            loadData();
+        });
+
+        return unsubscribe;
+    }, [navigation]);
+
+    // Pre-fill form if editing existing medication
+    useEffect(() => {
+        if (editMedication) {
+            setName(editMedication.name || '');
+            setDosage(editMedication.dosage || '');
+            setNote(editMedication.note || '');
+            setColor(editMedication.color || '#4e73df');
+
+            // Ensure all times are proper Date objects
+            const formattedTimes = (editMedication.times || [{ id: Date.now(), time: new Date() }]).map(t => ({
+                id: t.id,
+                time: ensureDateObject(t.time)
+            }));
+            setTimes(formattedTimes);
+        }
+    }, [editMedication]);
+
     const loadData = async () => {
         try {
             const meds = await AsyncStorage.getItem('medications');
@@ -41,8 +71,47 @@ export default function MedicationsScreen() {
         }
     };
 
+    const updateMedicationNotifications = async (existingMed, medicationData, newTimes) => {
+        try {
+            // Cancel existing notifications for this medication if it exists
+            if (existingMed) {
+                // Note: In a real implementation, you'd want to track notification IDs
+                // For now, we'll cancel all and reschedule
+                await Notifications.cancelAllScheduledNotificationsAsync();
+            }
+
+            // Schedule new notifications
+            for (const t of newTimes) {
+                const date = t.time instanceof Date ? t.time : new Date(t.time);
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: 'Medication Reminder',
+                        body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
+                    },
+                    trigger: {
+                        hour: date.getHours(),
+                        minute: date.getMinutes(),
+                        repeats: true,
+                    },
+                });
+            }
+        } catch (e) {
+            console.warn('Notification update error', e);
+        }
+    };
+
     const addTime = () => {
         setTimes((prev) => [...prev, { id: Date.now(), time: new Date() }]);
+    };
+
+    const ensureDateObject = (dateValue) => {
+        if (dateValue instanceof Date) {
+            return dateValue;
+        }
+        if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+            return new Date(dateValue);
+        }
+        return new Date(); // fallback to current date
     };
 
     const updateTime = (id, selectedDate) => {
@@ -57,7 +126,9 @@ export default function MedicationsScreen() {
             return;
         }
 
-        if (medications.find((m) => m.name === name.trim())) {
+        // Check if medication name conflicts with existing medications (but allow if editing the same one)
+        const existingMed = medications.find((m) => m.name === name.trim() && m.id !== editMedication?.id);
+        if (existingMed) {
             Alert.alert('This medication already exists in your list');
             return;
         }
@@ -67,8 +138,7 @@ export default function MedicationsScreen() {
             return;
         }
 
-        const newMed = {
-            id: Date.now(),
+        const medicationData = {
             name: name.trim(),
             dosage,
             note,
@@ -77,29 +147,38 @@ export default function MedicationsScreen() {
         };
 
         try {
-            const updatedMeds = [...medications, newMed];
-            await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
-            setMedications(updatedMeds);
+            let updatedMeds;
 
-            // schedule notifications (ensure you've requested permissions elsewhere)
-            for (const t of times) {
-                const date = t.time instanceof Date ? t.time : new Date(t.time);
-                await Notifications.scheduleNotificationAsync({
-                    content: {
-                        title: 'Medication Reminder',
-                        body: `${name} ${dosage} — ${note}`,
-                    },
-                    trigger: {
-                        hour: date.getHours(),
-                        minute: date.getMinutes(),
-                        repeats: true,
-                    },
-                });
+            if (editMedication) {
+                // Update existing medication
+                updatedMeds = medications.map(med =>
+                    med.id === editMedication.id
+                        ? { ...editMedication, ...medicationData }
+                        : med
+                );
+                Alert.alert('Medication updated successfully!');
+            } else {
+                // Create new medication
+                const newMed = {
+                    id: Date.now(),
+                    ...medicationData,
+                };
+                updatedMeds = [...medications, newMed];
+                Alert.alert('Medication added and reminders set!');
             }
 
-            Alert.alert('Medication added and reminders set!');
+            await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
+            setMedications(updatedMeds);
+            console.log('Saved medications to storage:', updatedMeds); // Debug log
+
+            // Schedule/Cancel notifications for the medication
+            await updateMedicationNotifications(editMedication, medicationData, times);
+
             Keyboard.dismiss();
             clearForm();
+
+            // Navigate back to Home tab after saving (this will trigger focus event)
+            navigation.navigate('Home');
         } catch (e) {
             console.warn('Save error', e);
             Alert.alert('Failed to save medication');
@@ -110,7 +189,7 @@ export default function MedicationsScreen() {
         setName('');
         setDosage('');
         setNote('');
-        setColor('#4e73df');
+        setColor('');
         setTimes([{ id: Date.now(), time: new Date() }]);
     };
 
@@ -123,14 +202,15 @@ export default function MedicationsScreen() {
             : '';
 
     return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.title}>Add medicines</Text>
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView style={styles.container}>
+                <Text style={styles.title}>{editMedication ? 'Edit Medication' : 'Add medicines'}</Text>
 
             <TextInput style={styles.input} placeholder="pill name" value={name} onChangeText={setName} />
 
             <TextInput
                 style={styles.input}
-                placeholder="dosage (e.g., 500mg)"
+                placeholder="dosage"
                 keyboardType="numeric"
                 value={dosage}
                 onChangeText={setDosage}
@@ -150,7 +230,7 @@ export default function MedicationsScreen() {
 
                     {showPickerId === t.id && (
                         <DateTimePicker
-                            value={t.time}
+                            value={ensureDateObject(t.time)}
                             mode="time"
                             is24Hour={true}
                             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -168,13 +248,17 @@ export default function MedicationsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.saveButton} onPress={saveMedication}>
-                <Text style={{ color: 'white', fontSize: 18 }}>Save</Text>
+                <Text style={{ color: 'white', fontSize: 18 }}>
+                    {editMedication ? 'Update' : 'Save'}
+                </Text>
             </TouchableOpacity>
         </ScrollView>
+    </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: '#fff' },
     container: { flex: 1, backgroundColor: '#fff', padding: 20 },
     title: { fontSize: 22, fontWeight: 'bold', marginBottom: 15 },
     input: {

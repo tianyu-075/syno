@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import TabNavigator from './Navigation/TabNavigator';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import { StatusBar } from 'expo-status-bar'
+import { Platform, StatusBar } from 'react-native';
 
 
 
@@ -45,17 +45,22 @@ export default function App() {
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
     };
   }, []);
 
 
 return (
-<NavigationContainer>
-<TabNavigator />
-<StatusBar style="auto" />
-</NavigationContainer>
-
+ <SafeAreaProvider>
+   <NavigationContainer>
+     <TabNavigator />
+     <StatusBar style="auto" />
+   </NavigationContainer>
+ </SafeAreaProvider>
 );
 }
