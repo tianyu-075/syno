@@ -14,6 +14,9 @@ export default function PillScreen() {
     const route = useRoute();
     const { medication } = route.params || {};
 
+    console.log('PillScreen - Received route params:', route.params);
+    console.log('PillScreen - Medication object:', medication);
+
     const formatTime = (times) => {
         if (!times || times.length === 0) return '--:--';
         return times.map(t => {
@@ -23,15 +26,20 @@ export default function PillScreen() {
     };
 
     const navigateToEdit = () => {
+        console.log('PillScreen - Navigating to EditMedication with medication:', medication);
+        console.log('Medication ID:', medication?.id);
+        console.log('Medication Name:', medication?.name);
         navigation.navigate('EditMedication', { medication });
     };
 
     if (!medication) {
+        console.log('PillScreen - No medication data received');
         return (
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.container}>
                     <Text style={styles.title}>Error: No medication data</Text>
-                    <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
+                    <Text style={styles.errorText}>Medication data was not passed correctly.</Text>
+                    <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Main')}>
                         <Text style={styles.backButtonText}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
@@ -42,7 +50,7 @@ export default function PillScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.container}>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Main')}>
                     <Text style={styles.backButtonText}>← Back to Home</Text>
                 </TouchableOpacity>
 
@@ -73,41 +81,54 @@ export default function PillScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#fff' },
-    container: { flex: 1, backgroundColor: '#fff', padding: 20 },
+    safeArea: { flex: 1, backgroundColor: '#f8f9fa' },
+    container: { flex: 1, backgroundColor: '#f8f9fa', padding: 20 },
     backButton: {
         backgroundColor: '#6c757d',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 20,
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 24,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     backButtonText: {
         color: 'white',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '600',
     },
-    title: { 
-        fontSize: 24, 
-        fontWeight: 'bold', 
-        marginBottom: 20,
+    title: {
+        fontSize: 28,
+        fontWeight: '700',
+        marginBottom: 24,
         textAlign: 'center',
-        color: '#333'
+        color: '#2d3748',
+        letterSpacing: -0.5,
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#e53e3e',
+        textAlign: 'center',
+        marginBottom: 20,
+        lineHeight: 22,
     },
     pillCard: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
-        borderRadius: 16,
-        marginBottom: 30,
-        padding: 20,
+        borderRadius: 20,
+        marginBottom: 32,
+        padding: 24,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 5,
         borderWidth: 1,
-        borderColor: '#e0e0e0',
+        borderColor: 'rgba(255, 255, 255, 0.8)',
     },
     colorBarContainer: {
         width: 12,
@@ -125,39 +146,48 @@ const styles = StyleSheet.create({
     },
     detailsContainer: {
         flex: 1,
+        justifyContent: 'center',
     },
     pillName: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#2d3748',
         marginBottom: 8,
+        letterSpacing: -0.3,
     },
     pillDosage: {
-        fontSize: 16,
-        color: '#5a7dda',
+        fontSize: 18,
+        color: '#4a5568',
         fontWeight: '600',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     pillNote: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 16,
+        color: '#718096',
         marginBottom: 8,
+        lineHeight: 22,
     },
     pillTimes: {
-        fontSize: 14,
-        color: '#888',
+        fontSize: 15,
+        color: '#4a5568',
         fontWeight: '500',
     },
     editButton: {
         backgroundColor: '#007AFF',
-        padding: 16,
-        borderRadius: 12,
+        padding: 18,
+        borderRadius: 16,
         alignItems: 'center',
-        marginTop: 20,
+        marginTop: 28,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
     },
     editButtonText: {
         color: 'white',
         fontSize: 18,
         fontWeight: '600',
+        letterSpacing: 0.3,
     },
 });

@@ -24,7 +24,7 @@ export default function EditMedicationScreen() {
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [note, setNote] = useState('');
-  const [times, setTimes] = useState([{ id: Date.now(), time: new Date() }]);
+  const [times, setTimes] = useState([{ id: Date.now(), time: null }]);
   const [color, setColor] = useState('#4e73df');
   const [allergies, setAllergies] = useState([]);
   const [medications, setMedications] = useState([]);
@@ -40,9 +40,9 @@ export default function EditMedicationScreen() {
       setDosage(medication.dosage || '');
       setNote(medication.note || '');
       setColor(medication.color || '#4e73df');
-      const formattedTimes = (medication.times || [{ id: Date.now(), time: new Date() }]).map(t => ({
+      const formattedTimes = (medication.times || [{ id: Date.now(), time: null }]).map(t => ({
         id: t.id,
-        time: ensureDateObject(t.time)
+        time: t.time ? ensureDateObject(t.time) : null
       }));
       setTimes(formattedTimes);
     }
@@ -62,11 +62,14 @@ export default function EditMedicationScreen() {
   const ensureDateObject = (dateValue) => {
     if (dateValue instanceof Date) return dateValue;
     if (typeof dateValue === 'string' || typeof dateValue === 'number') return new Date(dateValue);
+    if (dateValue === null) return new Date(); // For new time slots, use current time as picker default
     return new Date();
   };
 
   const addTime = () => {
-    setTimes((prev) => [...prev, { id: Date.now(), time: new Date() }]);
+    // Only check for duplicates if we're adding a time that would use current time
+    // For now, just allow adding empty time slots
+    setTimes((prev) => [...prev, { id: Date.now(), time: null }]);
   };
 
   const updateTime = (id, selectedDate) => {
@@ -84,6 +87,7 @@ export default function EditMedicationScreen() {
   };
 
   const formatTime = (date) => {
+    if (!date) return 'Set time';
     return date instanceof Date
       ? `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
       : 'Set time';
@@ -139,7 +143,7 @@ export default function EditMedicationScreen() {
               await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
               await Notifications.cancelAllScheduledNotificationsAsync();
               Alert.alert('Deleted', 'Medication removed.');
-              navigation.navigate('Home');
+              navigation.navigate('Main');
             } catch (e) {
               console.warn('Delete error', e);
               Alert.alert('Error', 'Failed to delete medication');
@@ -352,14 +356,15 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   timeButton: {
-    padding: 10,
+    padding: 14,
     backgroundColor: '#f3f4f6',
-    borderRadius: 8,
+    borderRadius: 10,
     flex: 1,
   },
   timeText: {
-    fontSize: 15,
+    fontSize: 18,
     color: '#333',
+    fontWeight: '600',
   },
   delButton: {
     position: 'absolute',

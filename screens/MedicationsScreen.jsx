@@ -21,7 +21,7 @@ export default function MedicationsScreen() {
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [note, setNote] = useState('');
-  const [times, setTimes] = useState([{ id: Date.now(), time: new Date() }]);
+  const [times, setTimes] = useState([{ id: Date.now(), time: null }]);
   const [color, setColor] = useState('#4e73df');
   const [allergies, setAllergies] = useState([]);
   const [medications, setMedications] = useState([]);
@@ -67,12 +67,13 @@ export default function MedicationsScreen() {
   };
 
   const addTime = () => {
-    setTimes((prev) => [...prev, { id: Date.now(), time: new Date() }]);
+    setTimes((prev) => [...prev, { id: Date.now(), time: null }]);
   };
 
   const ensureDateObject = (dateValue) => {
     if (dateValue instanceof Date) return dateValue;
     if (typeof dateValue === 'string' || typeof dateValue === 'number') return new Date(dateValue);
+    if (dateValue === null) return new Date(); // For new time slots, use current time as picker default
     return new Date();
   };
 
@@ -134,7 +135,7 @@ export default function MedicationsScreen() {
       Alert.alert('Success', 'Medication added and reminders set!');
       Keyboard.dismiss();
       clearForm();
-      navigation.navigate('Home');
+      navigation.navigate('Main');
     } catch (e) {
       console.warn('Save error', e);
       Alert.alert('Error', 'Failed to save medication');
@@ -146,10 +147,11 @@ export default function MedicationsScreen() {
     setDosage('');
     setNote('');
     setColor('#4e73df');
-    setTimes([{ id: Date.now(), time: new Date() }]);
+    setTimes([{ id: Date.now(), time: null }]);
   };
 
   const formatTime = (date) => {
+    if (!date) return 'Set time';
     if (!(date instanceof Date)) return 'Set time';
     return `${date.getHours().toString().padStart(2, '0')}:${date
       .getMinutes()
