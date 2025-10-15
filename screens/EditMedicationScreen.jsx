@@ -29,6 +29,7 @@ export default function EditMedicationScreen() {
   const [allergies, setAllergies] = useState([]);
   const [medications, setMedications] = useState([]);
   const [showPickerId, setShowPickerId] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -45,6 +46,7 @@ export default function EditMedicationScreen() {
         time: t.time ? ensureDateObject(t.time) : null
       }));
       setTimes(formattedTimes);
+      setHasUnsavedChanges(false); // Reset when loading medication data
     }
   }, [medication]);
 
@@ -70,12 +72,24 @@ export default function EditMedicationScreen() {
     // Only check for duplicates if we're adding a time that would use current time
     // For now, just allow adding empty time slots
     setTimes((prev) => [...prev, { id: Date.now(), time: null }]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleBackPress = () => {
+    // Navigate back to the specific medication's detail page
+    if (medication && medication.id) {
+      navigation.navigate('PillScreen', { medication });
+    } else {
+      // Fallback if medication data is missing
+      navigation.navigate('PillScreen');
+    }
   };
 
   const updateTime = (id, selectedDate) => {
     const updated = times.map((t) => (t.id === id ? { ...t, time: selectedDate } : t));
     setTimes(updated);
     setShowPickerId(null);
+    setHasUnsavedChanges(true);
   };
 
   const deleteTime = (id) => {
@@ -113,15 +127,24 @@ export default function EditMedicationScreen() {
     const medicationData = { name: name.trim(), dosage, note, color, times };
 
     try {
-      const updatedMeds = medications.map(med =>
-        med.id === medication.id ? { ...medication, ...medicationData } : med
-      );
-      await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
-      setMedications(updatedMeds);
+       if (!medication || !medication.id) {
+         Alert.alert('Error', 'Medication data is missing');
+         return;
+       }
 
-      Alert.alert('Success', 'Medication updated successfully!');
-      Keyboard.dismiss();
-      navigation.navigate('PillScreen');
+       const updatedMeds = medications.map(med =>
+         med.id === medication.id ? { ...med, ...medicationData } : med
+       );
+       await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
+       setMedications(updatedMeds);
+
+       // Find the updated medication to pass to Pillscreen
+       const updatedMedication = updatedMeds.find(med => med.id === medication.id);
+
+       Alert.alert('Success', 'Medication updated successfully!');
+       Keyboard.dismiss();
+       setHasUnsavedChanges(false); // Reset after successful save
+       navigation.navigate('PillScreen', { medication: updatedMedication });
     } catch (e) {
       console.warn('Save error', e);
       Alert.alert('Error', 'Failed to update medication');
@@ -129,6 +152,11 @@ export default function EditMedicationScreen() {
   };
 
   const handleDeleteMedication = async () => {
+    if (!medication || !medication.name || !medication.id) {
+      Alert.alert('Error', 'Medication data is missing');
+      return;
+    }
+
     Alert.alert(
       'Delete Medication',
       `Are you sure you want to delete ${medication.name}?`,
@@ -171,7 +199,7 @@ export default function EditMedicationScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('PillScreen')}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Edit Medication</Text>
@@ -183,7 +211,10 @@ export default function EditMedicationScreen() {
           style={styles.input}
           placeholder="Medicine name"
           value={name}
-          onChangeText={setName}
+          onChangeText={(text) => {
+            setName(text);
+            setHasUnsavedChanges(true);
+          }}
         />
 
         <Text style={styles.fieldLabel}>Dosage</Text>
@@ -191,7 +222,10 @@ export default function EditMedicationScreen() {
           style={styles.input}
           placeholder="Dosage (e.g., 500mg)"
           value={dosage}
-          onChangeText={setDosage}
+          onChangeText={(text) => {
+            setDosage(text);
+            setHasUnsavedChanges(true);
+          }}
         />
 
         <Text style={styles.fieldLabel}>Note</Text>
@@ -199,7 +233,10 @@ export default function EditMedicationScreen() {
           style={styles.input}
           placeholder="Note (e.g., after meal)"
           value={note}
-          onChangeText={setNote}
+          onChangeText={(text) => {
+            setNote(text);
+            setHasUnsavedChanges(true);
+          }}
         />
 
         <Text style={styles.sectionTitle}>Choose tag color</Text>
@@ -208,7 +245,10 @@ export default function EditMedicationScreen() {
             <TouchableOpacity
               key={c}
               style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.selectedColor]}
-              onPress={() => setColor(c)}
+              onPress={() => {
+                setColor(c);
+                setHasUnsavedChanges(true);
+              }}
             />
           ))}
         </View>
@@ -234,16 +274,25 @@ export default function EditMedicationScreen() {
             )}
 
             {showPickerId === t.id && (
-              <DateTimePicker
-                value={ensureDateObject(t.time)}
-                mode="time"
-                is24Hour={true}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) updateTime(t.id, selectedDate);
-                  if (Platform.OS === 'android') setShowPickerId(null);
-                }}
-              />
+              <View style={styles.pickerOverlay}>
+                <TouchableOpacity
+                  style={styles.pickerBackdrop}
+                  onPress={() => setShowPickerId(null)}
+                  activeOpacity={1}
+                />
+                <View style={styles.pickerContainer}>
+                  <DateTimePicker
+                    value={ensureDateObject(t.time)}
+                    mode="time"
+                    is24Hour={true}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, selectedDate) => {
+                      if (selectedDate) updateTime(t.id, selectedDate);
+                      if (Platform.OS === 'android') setShowPickerId(null);
+                    }}
+                  />
+                </View>
+              </View>
             )}
           </View>
         ))}
@@ -271,13 +320,13 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-    backgroundColor: '#fff',
-
-    alignItems:"flex-start",
-    justifyContent:'flex-end',
-    width: 10,
-    height: 1,
-    top:1,
+   
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 45,
+    height: 45,
   },
   backButtonText: { color: 'grey', fontSize: 18, fontWeight: 'bold' },
 
@@ -399,5 +448,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
     marginBottom: 20,
+  },
+
+  pickerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  pickerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  pickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
