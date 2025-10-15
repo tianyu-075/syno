@@ -163,13 +163,18 @@ export default function MedicationsScreen() {
         setTimes([{ id: Date.now(), time: new Date() }]);
     };
 
-    const formatTime = (date) =>
-        date instanceof Date
-            ? `${date.getHours().toString().padStart(2, '0')}:${date
-                  .getMinutes()
-                  .toString()
-                  .padStart(2, '0')}`
-            : '';
+    const formatTime = (date) => {
+        // Check if this is a default/unset time (current time that hasn't been modified)
+        const now = new Date();
+        const isDefaultTime = date instanceof Date &&
+            date.getHours() === now.getHours() &&
+            date.getMinutes() === now.getMinutes() &&
+            date.getSeconds() === now.getSeconds();
+
+        return date instanceof Date && !isDefaultTime
+            ? `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+            : 'Set time';
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -214,7 +219,7 @@ export default function MedicationsScreen() {
 
                     {times.length > 1 && (
                         <TouchableOpacity style={styles.delButton} onPress={() => deleteTime(t.id)}>
-                            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>×</Text>
+                            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>x</Text>
                         </TouchableOpacity>
                     )}
 

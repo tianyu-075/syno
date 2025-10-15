@@ -1,11 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
+
+
 export default function MyPageScreen() {
+
+
+
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Page</Text>
-      <Text style={styles.subtitle}>Your profile and settings</Text>
+    
     </View>
   );
 }
@@ -16,14 +23,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
+  }
 });

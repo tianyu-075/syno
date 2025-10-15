@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, Alert } from 'react-native';
-import {useEffect, useState} from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import {useEffect, useState, useRef} from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SwipeListView } from 'react-native-swipe-list-view';
 import PillCard from '../components/PillCard';
-import SwipeablePillCard from '../components/Swipeable';
 
 
 
@@ -13,6 +13,8 @@ import SwipeablePillCard from '../components/Swipeable';
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [medications, setMedications] = useState([]);
+  const [openRowKey, setOpenRowKey] = useState(null);
+  const swipeListRef = useRef(null);
 
   const loadMedications = async () => {
     try {
@@ -31,23 +33,44 @@ export default function HomeScreen() {
     }
   };
 
-  const handleEditMedication = (medication) => {
-    console.log('Navigating to edit medication:', medication.name); // Debug log
-    // Navigate to the dedicated edit screen
-    navigation.navigate('EditMedication', { medication });
+  const handleRowPress = (medication) => {
+    const rowKey = medication.id.toString();
+    
+    // If row is open, close it instead of navigating
+    if (openRowKey === rowKey) {
+      swipeListRef.current?.closeAllOpenRows();
+      setOpenRowKey(null);
+    } else {
+      // Row is closed, navigate to edit
+      console.log('Navigating to edit medication:', medication.name);
+      navigation.navigate('EditMedication', { medication });
+    }
   };
 
-  const handleDeleteMedication = async (medicationId) => {
-    try {
-      const updatedMeds = medications.filter(med => med.id !== medicationId);
-      await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
-      setMedications(updatedMeds);
-      Alert.alert('Success', 'Medication deleted successfully');
-      console.log('Medication deleted, updated meds:', updatedMeds);
-    } catch (e) {
-      console.warn('Failed to delete medication', e);
-      Alert.alert('Error', 'Failed to delete medication');
-    }
+  const handleDeleteMedication = async (medicationId, medicationName) => {
+    Alert.alert(
+      'Delete Medication',
+      `Are you sure you want to delete ${medicationName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedMeds = medications.filter(med => med.id !== medicationId);
+              await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
+              setMedications(updatedMeds);
+              Alert.alert('Success', 'Medication deleted successfully');
+              console.log('Medication deleted, updated meds:', updatedMeds);
+            } catch (e) {
+              console.warn('Failed to delete medication', e);
+              Alert.alert('Error', 'Failed to delete medication');
+            }
+          }
+        }
+      ]
+    );
   };
 
   useEffect(() => {
@@ -64,6 +87,27 @@ export default function HomeScreen() {
     return unsubscribe;
   }, [navigation]);
 
+  const renderHiddenItem = (data) => (
+    <View style={styles.rowBack}>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeleteMedication(data.item.id, data.item.name)}
+      >
+        <Text style={styles.deleteButtonText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const onRowOpen = (rowKey) => {
+    setOpenRowKey(rowKey);
+  };
+
+  const onRowClose = (rowKey) => {
+    if (openRowKey === rowKey) {
+      setOpenRowKey(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {medications.length === 0 ? (
@@ -73,7 +117,8 @@ export default function HomeScreen() {
           <Text style={styles.noMedications}>No medications added yet.{'\n'}Go to the Medications tab to add some!</Text>
         </View>
       ) : (
-        <FlatList
+        <SwipeListView
+          ref={swipeListRef}
           data={medications}
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={
@@ -83,17 +128,18 @@ export default function HomeScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <SwipeablePillCard
+            <PillCard
               medication={item}
-              onEdit={handleEditMedication}
-              onDelete={handleDeleteMedication}
-            >
-              <PillCard
-                medication={item}
-                onEdit={handleEditMedication}
-              />
-            </SwipeablePillCard>
+              onEdit={handleRowPress}
+            />
           )}
+          renderHiddenItem={renderHiddenItem}
+          rightOpenValue={-80}
+          disableRightSwipe
+          closeOnRowPress={false}
+          closeOnScroll={true}
+          onRowOpen={onRowOpen}
+          onRowClose={onRowClose}
           contentContainerStyle={styles.container}
         />
       )}
@@ -109,72 +155,54 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  deleteContainer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 120,
-    backgroundColor: '#ff6b6b', 
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
+  noMedications: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 40,
+    lineHeight: 24,
+  },
+  rowBack: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingRight: 15,
+    marginVertical: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
     justifyContent: 'center',
     alignItems: 'center',
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 1,
+    width: 100,
+    height: '100%',
+    borderTopRightRadius: 16,
+borderBottomRightRadius: 16,
+borderTopLeftRadius: 0,
+borderBottomLeftRadius: 0,
+right:1,
+    marginVertical: 8,
   },
-
-  deleteButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-
   deleteButtonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-
-  content: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 3,
-    zIndex: 2,
-    overflow: 'hidden',
-  },
-
-  touchableContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 18,
   },
 });
 
   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -30,7 +30,13 @@ const PillCard = ({ medication, onEdit }) => {
       testID={`medication-card-${medication.id}`}
     >
  
-      <View style={[styles.colorBar, { backgroundColor: medication.color || '#4e73df' }]} />
+      
+
+     <View style={styles.colorBarContainer}>
+        <View style={styles.whiteHalf} />
+        <View style={[styles.colorHalf, { backgroundColor: medication.color || '#4e73df' }]} />
+      
+     </View>
 
 
       <View style={styles.center}>
@@ -65,12 +71,27 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  colorBar: {
-    width: 8,
+  
+  colorBarContainer: {
+    width: 18,
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 25,
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#777',
+    overflow: 'hidden',
+
+    flexDirection: 'column',
   },
+  whiteHalf: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  colorHalf: {
+    flex: 1,
+  },
+
+
   center: {
     flex: 1,
     justifyContent: 'center',
