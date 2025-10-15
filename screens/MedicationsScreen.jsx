@@ -111,18 +111,48 @@ export default function MedicationsScreen() {
             return;
         }
 
-        // Check if medication name conflicts with existing medications
-        const existingMed = medications.find((m) => m.name === name.trim());
+        const existingMed = medications.find((m) => m.name.toLowerCase() === name.trim().toLowerCase());
         if (existingMed) {
-            Alert.alert('This medication already exists in your list');
+            Alert.alert('Error', 'This medication already exists in your list');
             return;
         }
 
-        if (allergies.find((a) => a.name === name.trim())) {
-            Alert.alert('This medication is in your allergy list');
-            return;
+        // Check for allergy match
+        const matchingAllergy = allergies.find((allergy) =>
+            allergy.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+
+        if (matchingAllergy) {
+            Alert.alert(
+                'Allergy Warning',
+                `Warning: "${name.trim()}" appears to be in your allergies list. Are you sure you want to add this medication?`,
+                [
+                    {
+                        text: 'Cancel',
+                        style: 'cancel',
+                        onPress: () => {
+                            // Don't add the medication
+                            return;
+                        }
+                    },
+                    {
+                        text: 'Add Anyway',
+                        style: 'destructive',
+                        onPress: () => {
+                            // User confirmed, proceed with adding the medication
+                            proceedWithAddingMedication();
+                        }
+                    }
+                ]
+            );
+            return; // Exit early, will be handled by confirmation callback
         }
 
+        // No allergy match, proceed with adding medication directly
+        proceedWithAddingMedication();
+    };
+
+    const proceedWithAddingMedication = async () => {
         const medicationData = {
             name: name.trim(),
             dosage,
@@ -151,7 +181,7 @@ export default function MedicationsScreen() {
             clearForm();
         } catch (e) {
             console.warn('Save error', e);
-            Alert.alert('Failed to save medication');
+            Alert.alert('Error', 'Failed to save medication');
         }
     };
 
