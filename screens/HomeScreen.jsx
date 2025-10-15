@@ -43,7 +43,7 @@ export default function HomeScreen() {
     } else {
       // Row is closed, navigate to edit
       console.log('Navigating to edit medication:', medication.name);
-      navigation.navigate('EditMedication', { medication });
+      navigation.navigate('PillScreen', { medication });
     }
   };
 
