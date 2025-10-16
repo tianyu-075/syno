@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import TabNavigator from './Navigation/TabNavigator';
 import EditMedicationScreen from './screens/EditMedicationScreen';
 import PillScreen from './screens/PillScreen';
+import UserPicture from './screens/UserPicture';
 import * as Notifications from 'expo-notifications';
 import { Platform, StatusBar } from 'react-native';
 
@@ -67,6 +68,7 @@ return (
        <Stack.Screen name="Main" component={TabNavigator} />
        <Stack.Screen name="EditMedication" component={EditMedicationScreen} />
        <Stack.Screen name="PillScreen" component={PillScreen} />
+       <Stack.Screen name="UserPicture" component={UserPicture} />
      </Stack.Navigator>
      <StatusBar style="auto" />
    </NavigationContainer>

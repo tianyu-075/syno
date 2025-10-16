@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import {useEffect, useState, useRef} from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +14,8 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const [medications, setMedications] = useState([]);
   const [openRowKey, setOpenRowKey] = useState(null);
+  const [userName, setUserName] = useState('');
+  const [profilePicture, setProfilePicture] = useState('');
   const swipeListRef = useRef(null);
 
   const loadMedications = async () => {
@@ -30,6 +32,17 @@ export default function HomeScreen() {
     } catch (e) {
       console.warn('Failed loading medications', e);
       setMedications([]);
+    }
+  };
+
+  const loadUserData = async () => {
+    try {
+      const savedName = await AsyncStorage.getItem('userName');
+      const savedPicture = await AsyncStorage.getItem('profilePicture');
+      if (savedName) setUserName(savedName);
+      if (savedPicture) setProfilePicture(savedPicture);
+    } catch (e) {
+      console.warn('Failed loading user data', e);
     }
   };
 
@@ -75,6 +88,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadMedications();
+    loadUserData();
   }, []);
 
   // Reload medications whenever the screen comes into focus
@@ -82,6 +96,7 @@ export default function HomeScreen() {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('HomeScreen focused - reloading medications');
       loadMedications();
+      loadUserData(); // Also reload user data in case profile picture changed
     });
 
     return unsubscribe;
@@ -111,11 +126,21 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       {medications.length === 0 ? (
-        <View style={styles.container}>
-          <Text style={styles.title}>Welcome to Syno</Text>
-          <Text style={styles.subtitle}>Your medication management app</Text>
-          <Text style={styles.noMedications}>No medications added yet.{'\n'}Go to the Medications tab to add some!</Text>
-        </View>
+       <View style={styles.container}>
+         <View style={styles.userSection}>
+           <Image
+             source={{ uri: profilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
+             style={styles.profileImage}
+           />
+           <View style={styles.greetingSection}>
+             <Text style={styles.title}>
+               {userName ? `Hi, ${userName}` : 'Welcome to Syno'}
+             </Text>
+             <Text style={styles.subtitle}>Your medication management app</Text>
+           </View>
+         </View>
+         <Text style={styles.noMedications}>No medications added yet.{'\n'}Go to the Medications tab to add some!</Text>
+       </View>
       ) : (
         <SwipeListView
           ref={swipeListRef}
@@ -123,8 +148,18 @@ export default function HomeScreen() {
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={
             <View style={styles.header}>
-              <Text style={styles.title}>Welcome to Syno</Text>
-              <Text style={styles.subtitle}>Your medication management app</Text>
+              <View style={styles.userSection}>
+                <Image
+                  source={{ uri: profilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
+                  style={styles.profileImage}
+                />
+                <View style={styles.greetingSection}>
+                  <Text style={styles.title}>
+                    {userName ? `Hi, ${userName}` : 'Welcome to Syno'}
+                  </Text>
+                  <Text style={styles.subtitle}>Your medication management app</Text>
+                </View>
+              </View>
             </View>
           }
           renderItem={({ item }) => (
@@ -159,6 +194,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
+  },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  greetingSection: {
+    flex: 1,
   },
   title: {
     fontSize: 28,

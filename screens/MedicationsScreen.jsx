@@ -31,12 +31,34 @@ export default function MedicationsScreen() {
     loadData();
   }, []);
 
+  // Reload medications whenever the screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('MedicationsScreen focused - reloading data');
+      loadData();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const loadData = async () => {
     try {
       const meds = await AsyncStorage.getItem('medications');
       const allergyData = await AsyncStorage.getItem('allergies');
-      if (meds) setMedications(JSON.parse(meds));
-      if (allergyData) setAllergies(JSON.parse(allergyData));
+      console.log('Raw allergy data from storage:', allergyData);
+      if (meds) {
+        const parsedMeds = JSON.parse(meds);
+        setMedications(parsedMeds);
+        console.log('Loaded medications:', parsedMeds.length);
+      }
+      if (allergyData) {
+        const parsedAllergies = JSON.parse(allergyData);
+        console.log('Parsed allergies:', parsedAllergies);
+        setAllergies(parsedAllergies);
+        console.log('Loaded allergies:', parsedAllergies.length);
+      } else {
+        console.log('No allergies found in storage');
+      }
       clearForm();
     } catch (e) {
       console.warn('Failed loading stored data', e);
@@ -105,9 +127,17 @@ export default function MedicationsScreen() {
       return;
     }
 
+    console.log('Checking allergies for:', name.trim().toLowerCase());
+    console.log('Current allergies:', allergies);
+
     const matchingAllergy = allergies.find(
-      (allergy) => allergy.trim().toLowerCase() === name.trim().toLowerCase()
+      (allergy) => {
+        const allergyName = typeof allergy === 'object' ? allergy.name : allergy;
+        return allergyName && allergyName.trim().toLowerCase() === name.trim().toLowerCase();
+      }
     );
+
+    console.log('Matching allergy found:', matchingAllergy);
 
     if (matchingAllergy) {
       Alert.alert(
@@ -135,7 +165,7 @@ export default function MedicationsScreen() {
       Alert.alert('Success', 'Medication added and reminders set!');
       Keyboard.dismiss();
       clearForm();
-      navigation.navigate('Main');
+      navigation.navigate('Home');
     } catch (e) {
       console.warn('Save error', e);
       Alert.alert('Error', 'Failed to save medication');
