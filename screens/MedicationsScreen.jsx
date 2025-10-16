@@ -192,10 +192,10 @@ export default function MedicationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Add medicine</Text>
+        <Text style={styles.title}>Add Medication</Text>
 
         {/* Name */}
-        <Text style={styles.sectionTitle}>Name</Text>
+        <Text style={styles.sectionTitle}>Medication Name</Text>
         <TextInput
           style={styles.input}
           placeholder="Medicine name"

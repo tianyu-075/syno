@@ -206,7 +206,7 @@ export default function EditMedicationScreen() {
           <View style={styles.placeholder} />
         </View>
 
-        <Text style={styles.fieldLabel}>Name</Text>
+        <Text style={styles.fieldLabel}>Medication Name</Text>
         <TextInput
           style={styles.input}
           placeholder="Medicine name"
@@ -239,7 +239,7 @@ export default function EditMedicationScreen() {
           }}
         />
 
-        <Text style={styles.sectionTitle}>Choose tag color</Text>
+        <Text style={styles.sectionTitle}>Change tag color</Text>
         <View style={styles.colorContainer}>
           {['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'].map((c) => (
             <TouchableOpacity
@@ -302,7 +302,7 @@ export default function EditMedicationScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteMedication}>
-          <Text style={{ color: 'white', fontSize: 16 }}>Delete this medicine</Text>
+          <Text style={{ color: 'white', fontSize: 16 }}>Delete this medication</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
