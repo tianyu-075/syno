@@ -35,7 +35,7 @@ export default function TabNavigator() {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Medication') {
+          } else if (route.name === 'Medications') {
             iconName = focused ? 'medkit' : 'medkit-outline';
           } else if (route.name === 'MyPage') {
             iconName = focused ? 'person' : 'person-outline';
