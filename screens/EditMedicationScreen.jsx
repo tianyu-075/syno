@@ -320,15 +320,13 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-   
-    padding: 10,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 45,
-    height: 45,
+    borderRadius: 12,
   },
-  backButtonText: { color: 'grey', fontSize: 18, fontWeight: 'bold' },
+  backButtonText: { color: '#555', fontSize: 20, fontWeight: '700' },
 
   placeholder: {
     width: 50,
