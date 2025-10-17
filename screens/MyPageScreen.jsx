@@ -59,11 +59,23 @@ export default function MyPageScreen() {
   };
 
   const addAllergy = async () => {
-    if (newAllergy.trim().length > 0) {
-      const updated = [...allergies, newAllergy.trim()];
+    const trimmedAllergy = newAllergy.trim();
+
+    if (trimmedAllergy.length > 0) {
+      // Check for duplicates (case-insensitive)
+      const existingAllergy = allergies.find(
+        (allergy) => allergy.toLowerCase() === trimmedAllergy.toLowerCase()
+      );
+
+      if (existingAllergy) {
+        Alert.alert('Error', 'This allergy already exists in your list');
+        return;
+      }
+
+      const updated = [...allergies, trimmedAllergy];
       setAllergies(updated);
-      console.log( newAllergy.trim());
       setNewAllergy('');
+
       try {
         await AsyncStorage.setItem('allergies', JSON.stringify(updated));
       } catch (e) {
