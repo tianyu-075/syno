@@ -13,7 +13,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function PillScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const [currentMedication, setCurrentMedication] = useState(route.params?.medication || null);
+  const [currentMedication, setCurrentMedication] = useState(
+    route.params?.medication || null
+  );
 
   useEffect(() => {
     const refreshMedicationData = async () => {
@@ -22,7 +24,9 @@ export default function PillScreen() {
           const meds = await AsyncStorage.getItem('medications');
           if (meds) {
             const medicationsArray = JSON.parse(meds);
-            const updatedMed = medicationsArray.find(m => m.id === currentMedication.id);
+            const updatedMed = medicationsArray.find(
+              (m) => m.id === currentMedication.id
+            );
             if (updatedMed) setCurrentMedication(updatedMed);
           }
         } catch (e) {
@@ -56,10 +60,12 @@ export default function PillScreen() {
     });
 
     // Format the sorted times
-    return sortedTimes.map(t => {
-      const time = t.time instanceof Date ? t.time : new Date(t.time);
-      return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-    }).join(', ');
+    return sortedTimes
+      .map((t) => {
+        const time = t.time instanceof Date ? t.time : new Date(t.time);
+        return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+      })
+      .join(', ');
   };
 
   const navigateToEdit = () => {
@@ -71,8 +77,13 @@ export default function PillScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <Text style={styles.title}>Error: No medication data</Text>
-          <Text style={styles.errorText}>Medication data was not passed correctly.</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Main')}>
+          <Text style={styles.errorText}>
+            Medication data was not passed correctly.
+          </Text>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate('Main')}
+          >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -85,7 +96,10 @@ export default function PillScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Main')}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate('Main')}
+          >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Medication</Text>
@@ -96,30 +110,35 @@ export default function PillScreen() {
         <View style={styles.pillRow}>
           <View style={styles.colorBarContainer}>
             <View style={styles.whiteHalf} />
-            <View style={[styles.colorHalf, { backgroundColor: currentMedication.color || '#4e73df' }]} />
+            <View
+              style={[
+                styles.colorHalf,
+                { backgroundColor: currentMedication.color || '#4e73df' },
+              ]}
+            />
           </View>
 
           <View style={styles.nameContainer}>
             <Text style={styles.nameLabel}>Name</Text>
             <Text style={styles.pillName}>{currentMedication.name}</Text>
-            
           </View>
         </View>
 
-
         <View style={styles.infoLine}>
-        {currentMedication.dosage && (
-              <>
-          <Text style={styles.infoLabel}>Dosage</Text>
-                <Text style={styles.infoValue}>{currentMedication.dosage}</Text>
-              </>
-            )}
-            </View>
+          {currentMedication.dosage && (
+            <>
+              <Text style={styles.infoLabel}>Dosage</Text>
+              <Text style={styles.infoValue}>{currentMedication.dosage}</Text>
+            </>
+          )}
+        </View>
 
         {/* Time */}
         <View style={styles.infoLine}>
           <Text style={styles.infoLabel}>Time</Text>
-          <Text style={styles.infoValue}>{formatTime(currentMedication.times)}</Text>
+          <Text style={styles.infoValue}>
+            {formatTime(currentMedication.times)}
+          </Text>
         </View>
 
         {/* Note */}
@@ -181,7 +200,7 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent:'space-between',
+    justifyContent: 'space-between',
     padding: 20,
     marginLeft: 50,
     marginBottom: 40,

@@ -1,0 +1,12 @@
+node_modules/
+.vscode/
+*.log
+.DS_Store
+coverage/
+.nyc_output
+*.min.js
+*.min.css
+dist/
+build/
+package-lock.json
+yarn.lock
