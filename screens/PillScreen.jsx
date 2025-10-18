@@ -37,7 +37,26 @@ export default function PillScreen() {
 
   const formatTime = (times) => {
     if (!times || times.length === 0) return '--:--';
-    return times.map(t => {
+
+    // Sort times from smallest to largest (0-24 hour format)
+    const sortedTimes = times.sort((a, b) => {
+      const timeA = a.time instanceof Date ? a.time : new Date(a.time);
+      const timeB = b.time instanceof Date ? b.time : new Date(b.time);
+
+      const hourA = timeA.getHours();
+      const hourB = timeB.getHours();
+
+      // First sort by hour
+      if (hourA !== hourB) {
+        return hourA - hourB;
+      }
+
+      // If hours are equal, sort by minute
+      return timeA.getMinutes() - timeB.getMinutes();
+    });
+
+    // Format the sorted times
+    return sortedTimes.map(t => {
       const time = t.time instanceof Date ? t.time : new Date(t.time);
       return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
     }).join(', ');
