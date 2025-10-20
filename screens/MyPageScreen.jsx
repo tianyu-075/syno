@@ -108,12 +108,18 @@ export default function MyPageScreen() {
           <View style={styles.profileContainer}>
             <View style={styles.avatarContainer}>
               <Image
-                source={{ uri: profilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
+                source={{
+                  uri:
+                    profilePicture ||
+                    'https://cdn-icons-png.flaticon.com/512/847/847969.png',
+                }}
                 style={styles.avatar}
               />
             </View>
             <TouchableOpacity onPress={navigateToUserPicture}>
-              <Text style={styles.changePictureText}>Change Profile Picture</Text>
+              <Text style={styles.changePictureText}>
+                Change Profile Picture
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -127,19 +133,27 @@ export default function MyPageScreen() {
               placeholder="Enter your name"
               placeholderTextColor="#A0AEC0"
             />
-            <TouchableOpacity style={styles.saveButtonSmall} onPress={saveUserName}>
+            <TouchableOpacity
+              style={styles.saveButtonSmall}
+              onPress={saveUserName}
+            >
               <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
           </View>
 
           {/* Allergies */}
-          <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Allergies & Medications to Avoid</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 30 }]}>
+            Allergies & Medications to Avoid
+          </Text>
 
           {allergies.length > 0 ? (
             allergies.map((item, i) => (
               <View key={i} style={styles.allergyItem}>
                 <Text style={styles.allergyText}>{item}</Text>
-                <TouchableOpacity onPress={() => deleteAllergy(i)} style={styles.deleteButton}>
+                <TouchableOpacity
+                  onPress={() => deleteAllergy(i)}
+                  style={styles.deleteButton}
+                >
                   <Text style={styles.deleteButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -172,7 +186,6 @@ export default function MyPageScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -185,7 +198,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
-
 
   profileContainer: {
     alignItems: 'center',
@@ -258,7 +270,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
   },
-
 
   allergyItem: {
     flexDirection: 'row',
