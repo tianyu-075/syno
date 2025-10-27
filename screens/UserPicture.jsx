@@ -13,12 +13,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AVATAR_OPTIONS = [
-  { id: '1', uri: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'},
-  { id: '2', uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'},
+  { id: '1', uri: 'https://cdn-icons-png.flaticon.com/512/847/847969.png' },
+  { id: '2', uri: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' },
   { id: '3', uri: 'https://cdn-icons-png.flaticon.com/512/236/236832.png' },
   { id: '4', uri: 'https://cdn-icons-png.flaticon.com/512/4140/4140048.png' },
-  { id: '5', uri: 'https://cdn-icons-png.flaticon.com/512/4128/4128176.png'},
-  { id: '6', uri: 'https://cdn-icons-png.flaticon.com/512/4202/4202831.png'},
+  { id: '5', uri: 'https://cdn-icons-png.flaticon.com/512/4128/4128176.png' },
+  { id: '6', uri: 'https://cdn-icons-png.flaticon.com/512/4202/4202831.png' },
   { id: '7', uri: 'https://cdn-icons-png.flaticon.com/512/4333/4333609.png' },
   { id: '8', uri: 'https://cdn-icons-png.flaticon.com/512/4128/4128163.png' },
 ];
@@ -67,7 +67,10 @@ export default function UserPicture() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Choose Profile Picture</Text>
@@ -79,7 +82,11 @@ export default function UserPicture() {
           <Text style={styles.sectionTitle}>Current Picture</Text>
           <View style={styles.currentContainer}>
             <Image
-              source={{ uri: currentProfilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
+              source={{
+                uri:
+                  currentProfilePicture ||
+                  'https://cdn-icons-png.flaticon.com/512/847/847969.png',
+              }}
               style={styles.currentAvatar}
             />
           </View>

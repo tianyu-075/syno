@@ -1,14 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
-import {useEffect, useState, useRef} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+} from 'react-native';
+import { useEffect, useState, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import PillCard from '../components/PillCard';
-
-
-
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -48,7 +52,7 @@ export default function HomeScreen() {
 
   const handleRowPress = (medication) => {
     const rowKey = medication.id.toString();
-    
+
     // If row is open, close it instead of navigating
     if (openRowKey === rowKey) {
       swipeListRef.current?.closeAllOpenRows();
@@ -71,8 +75,13 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const updatedMeds = medications.filter(med => med.id !== medicationId);
-              await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
+              const updatedMeds = medications.filter(
+                (med) => med.id !== medicationId
+              );
+              await AsyncStorage.setItem(
+                'medications',
+                JSON.stringify(updatedMeds)
+              );
               setMedications(updatedMeds);
               Alert.alert('Success', 'Medication deleted successfully');
               console.log('Medication deleted, updated meds:', updatedMeds);
@@ -80,8 +89,8 @@ export default function HomeScreen() {
               console.warn('Failed to delete medication', e);
               Alert.alert('Error', 'Failed to delete medication');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -126,21 +135,30 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       {medications.length === 0 ? (
-       <View style={styles.container}>
-         <View style={styles.userSection}>
-           <Image
-             source={{ uri: profilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
-             style={styles.profileImage}
-           />
-           <View style={styles.greetingSection}>
-             <Text style={styles.title}>
-               {userName ? `Hi, ${userName}` : 'Welcome to Syno'}
-             </Text>
-             <Text style={styles.subtitle}>Your medication management app</Text>
-           </View>
-         </View>
-         <Text style={styles.noMedications}>No medications added yet.{'\n'}Go to the Medications tab to add some!</Text>
-       </View>
+        <View style={styles.container}>
+          <View style={styles.userSection}>
+            <Image
+              source={{
+                uri:
+                  profilePicture ||
+                  'https://cdn-icons-png.flaticon.com/512/847/847969.png',
+              }}
+              style={styles.profileImage}
+            />
+            <View style={styles.greetingSection}>
+              <Text style={styles.title}>
+                {userName ? `Hi, ${userName}` : 'Welcome to Syno'}
+              </Text>
+              <Text style={styles.subtitle}>
+                Your medication management app
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.noMedications}>
+            No medications added yet.{'\n'}Go to the Medications tab to add
+            some!
+          </Text>
+        </View>
       ) : (
         <SwipeListView
           ref={swipeListRef}
@@ -150,23 +168,26 @@ export default function HomeScreen() {
             <View style={styles.header}>
               <View style={styles.userSection}>
                 <Image
-                  source={{ uri: profilePicture || 'https://cdn-icons-png.flaticon.com/512/847/847969.png' }}
+                  source={{
+                    uri:
+                      profilePicture ||
+                      'https://cdn-icons-png.flaticon.com/512/847/847969.png',
+                  }}
                   style={styles.profileImage}
                 />
                 <View style={styles.greetingSection}>
                   <Text style={styles.title}>
                     {userName ? `Hi, ${userName}` : 'Welcome to Syno'}
                   </Text>
-                  <Text style={styles.subtitle}>Your medication management app</Text>
+                  <Text style={styles.subtitle}>
+                    Your medication management app
+                  </Text>
                 </View>
               </View>
             </View>
           }
           renderItem={({ item }) => (
-            <PillCard
-              medication={item}
-              onEdit={handleRowPress}
-            />
+            <PillCard medication={item} onEdit={handleRowPress} />
           )}
           renderHiddenItem={renderHiddenItem}
           rightOpenValue={-80}
@@ -243,10 +264,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: '100%',
     borderTopRightRadius: 16,
-borderBottomRightRadius: 16,
-borderTopLeftRadius: 0,
-borderBottomLeftRadius: 0,
-right:1,
+    borderBottomRightRadius: 16,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    right: 1,
     marginVertical: 8,
   },
   deleteButtonText: {
@@ -255,5 +276,3 @@ right:1,
     fontWeight: '600',
   },
 });
-
-  

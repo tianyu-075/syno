@@ -6,7 +6,6 @@ import HomeScreen from '../screens/HomeScreen';
 import MedicationsScreen from '../screens/MedicationsScreen';
 import MyPageScreen from '../screens/MyPageScreen';
 
-
 const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {

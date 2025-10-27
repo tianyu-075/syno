@@ -24,7 +24,9 @@ export default function EditMedicationScreen() {
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [note, setNote] = useState('');
-  const [times, setTimes] = useState([{ id: Date.now(), time: null }]);
+  const [times, setTimes] = useState([
+    { id: Date.now(), time: null, notificationId: null },
+  ]);
   const [color, setColor] = useState('#4e73df');
   const [allergies, setAllergies] = useState([]);
   const [medications, setMedications] = useState([]);
@@ -41,12 +43,17 @@ export default function EditMedicationScreen() {
       setDosage(medication.dosage || '');
       setNote(medication.note || '');
       setColor(medication.color || '#4e73df');
-      const formattedTimes = (medication.times || [{ id: Date.now(), time: null }]).map(t => ({
+      const formattedTimes = (
+        medication.times || [
+          { id: Date.now(), time: null, notificationId: null },
+        ]
+      ).map((t) => ({
         id: t.id,
-        time: t.time ? ensureDateObject(t.time) : null
+        time: t.time ? ensureDateObject(t.time) : null,
+        notificationId: t.notificationId || null,
       }));
       setTimes(formattedTimes);
-      setHasUnsavedChanges(false); // Reset when loading medication data
+      setHasUnsavedChanges(false);
     }
   }, [medication]);
 
@@ -54,7 +61,18 @@ export default function EditMedicationScreen() {
     try {
       const meds = await AsyncStorage.getItem('medications');
       const allergyData = await AsyncStorage.getItem('allergies');
-      if (meds) setMedications(JSON.parse(meds));
+      if (meds) {
+        const parsedMeds = JSON.parse(meds);
+        const convertedMeds = parsedMeds.map((med) => ({
+          ...med,
+          times: med.times.map((t) => ({
+            ...t,
+            time: t.time ? new Date(t.time) : null,
+            notificationId: t.notificationId || null,
+          })),
+        }));
+        setMedications(convertedMeds);
+      }
       if (allergyData) setAllergies(JSON.parse(allergyData));
     } catch (e) {
       console.warn('Failed loading stored data', e);
@@ -62,38 +80,52 @@ export default function EditMedicationScreen() {
   };
 
   const ensureDateObject = (dateValue) => {
-    if (dateValue instanceof Date) return dateValue;
-    if (typeof dateValue === 'string' || typeof dateValue === 'number') return new Date(dateValue);
-    if (dateValue === null) return new Date(); // For new time slots, use current time as picker default
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
+    if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+      const date = new Date(dateValue);
+      return isNaN(date) ? new Date() : date;
+    }
+    if (dateValue === null) return new Date();
     return new Date();
   };
 
   const addTime = () => {
-    // Only check for duplicates if we're adding a time that would use current time
-    // For now, just allow adding empty time slots
-    setTimes((prev) => [...prev, { id: Date.now(), time: null }]);
+    setTimes((prev) => [
+      ...prev,
+      { id: Date.now(), time: null, notificationId: null },
+    ]);
     setHasUnsavedChanges(true);
   };
 
   const handleBackPress = () => {
-    // Navigate back to the specific medication's detail page
     if (medication && medication.id) {
       navigation.navigate('PillScreen', { medication });
     } else {
-      // Fallback if medication data is missing
       navigation.navigate('PillScreen');
     }
   };
 
   const updateTime = (id, selectedDate) => {
-    const updated = times.map((t) => (t.id === id ? { ...t, time: selectedDate } : t));
+    const updated = times.map((t) =>
+      t.id === id ? { ...t, time: selectedDate } : t
+    );
     setTimes(updated);
     setShowPickerId(null);
     setHasUnsavedChanges(true);
   };
 
-  const deleteTime = (id) => {
+  const deleteTime = async (id) => {
     if (times.length > 1) {
+      const timeToDelete = times.find((t) => t.id === id);
+      if (timeToDelete?.notificationId) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(
+            timeToDelete.notificationId
+          );
+        } catch (e) {
+          console.warn('Cancel notification error', e);
+        }
+      }
       setTimes((prev) => prev.filter((t) => t.id !== id));
     } else {
       Alert.alert('Cannot Delete', 'At least one time slot is required.');
@@ -113,7 +145,9 @@ export default function EditMedicationScreen() {
       return;
     }
 
-    const existingMed = medications.find((m) => m.name === name.trim() && m.id !== medication?.id);
+    const existingMed = medications.find(
+      (m) => m.name === name.trim() && m.id !== medication?.id
+    );
     if (existingMed) {
       Alert.alert('This medication already exists in your list');
       return;
@@ -127,24 +161,69 @@ export default function EditMedicationScreen() {
     const medicationData = { name: name.trim(), dosage, note, color, times };
 
     try {
-       if (!medication || !medication.id) {
-         Alert.alert('Error', 'Medication data is missing');
-         return;
-       }
+      if (!medication || !medication.id) {
+        Alert.alert('Error', 'Medication data is missing');
+        return;
+      }
 
-       const updatedMeds = medications.map(med =>
-         med.id === medication.id ? { ...med, ...medicationData } : med
-       );
-       await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
-       setMedications(updatedMeds);
+      // Cancel old notifications first
+      for (const t of times) {
+        if (t.notificationId) {
+          try {
+            await Notifications.cancelScheduledNotificationAsync(
+              t.notificationId
+            );
+          } catch (e) {
+            console.warn('Cancel notification error', e);
+          }
+        }
+      }
 
-       // Find the updated medication to pass to Pillscreen
-       const updatedMedication = updatedMeds.find(med => med.id === medication.id);
+      const updatedMeds = medications.map((med) =>
+        med.id === medication.id ? { ...med, ...medicationData } : med
+      );
 
-       Alert.alert('Success', 'Medication updated successfully!');
-       Keyboard.dismiss();
-       setHasUnsavedChanges(false); // Reset after successful save
-       navigation.navigate('PillScreen', { medication: updatedMedication });
+      // Schedule new notifications and save notificationId
+      const updatedTimes = [];
+      for (const t of times) {
+        if (!t.time) {
+          updatedTimes.push({ ...t, notificationId: null });
+          continue;
+        }
+        const date = ensureDateObject(t.time);
+        let triggerDate = new Date();
+        triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+        if (triggerDate <= new Date()) {
+          triggerDate.setDate(triggerDate.getDate() + 1);
+        }
+        const trigger = {
+          hour: triggerDate.getHours(),
+          minute: triggerDate.getMinutes(),
+          repeats: true,
+        };
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Medication Reminder',
+            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
+          },
+          trigger,
+        });
+        updatedTimes.push({ ...t, notificationId });
+      }
+
+      const finalMedicationData = { ...medicationData, times: updatedTimes };
+
+      const finalMeds = updatedMeds.map((med) =>
+        med.id === medication.id ? finalMedicationData : med
+      );
+
+      await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
+      setMedications(finalMeds);
+
+      Alert.alert('Success', 'Medication updated successfully!');
+      Keyboard.dismiss();
+      setHasUnsavedChanges(false);
+      navigation.navigate('PillScreen', { medication: finalMedicationData });
     } catch (e) {
       console.warn('Save error', e);
       Alert.alert('Error', 'Failed to update medication');
@@ -167,9 +246,25 @@ export default function EditMedicationScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const updatedMeds = medications.filter(med => med.id !== medication.id);
-              await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
-              await Notifications.cancelAllScheduledNotificationsAsync();
+              // Cancel all notifications for this medication
+              for (const t of medication.times || []) {
+                if (t.notificationId) {
+                  try {
+                    await Notifications.cancelScheduledNotificationAsync(
+                      t.notificationId
+                    );
+                  } catch (e) {
+                    console.warn('Cancel notification error', e);
+                  }
+                }
+              }
+              const updatedMeds = medications.filter(
+                (med) => med.id !== medication.id
+              );
+              await AsyncStorage.setItem(
+                'medications',
+                JSON.stringify(updatedMeds)
+              );
               Alert.alert('Deleted', 'Medication removed.');
               navigation.navigate('Main');
             } catch (e) {
@@ -187,7 +282,10 @@ export default function EditMedicationScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <Text style={styles.title}>Error: No medication data</Text>
-          <TouchableOpacity style={styles.saveButton} onPress={() => navigation.navigate('PillScreen')}>
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={() => navigation.navigate('PillScreen')}
+          >
             <Text style={{ color: 'white', fontSize: 18 }}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -241,10 +339,23 @@ export default function EditMedicationScreen() {
 
         <Text style={styles.sectionTitle}>Change tag color</Text>
         <View style={styles.colorContainer}>
-          {['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'].map((c) => (
+          {[
+            '#4e73df',
+            '#1cc88a',
+            '#36b9cc',
+            '#f6c23e',
+            '#e74a3b',
+            '#858796',
+            '#fd7e14',
+            '#6f42c1',
+          ].map((c) => (
             <TouchableOpacity
               key={c}
-              style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.selectedColor]}
+              style={[
+                styles.colorCircle,
+                { backgroundColor: c },
+                color === c && styles.selectedColor,
+              ]}
               onPress={() => {
                 setColor(c);
                 setHasUnsavedChanges(true);
@@ -253,7 +364,6 @@ export default function EditMedicationScreen() {
           ))}
         </View>
 
-        {/* Time section header */}
         <View style={styles.timeHeader}>
           <Text style={styles.sectionTitle}>Reminder Time</Text>
           <TouchableOpacity onPress={addTime}>
@@ -263,12 +373,18 @@ export default function EditMedicationScreen() {
 
         {times.map((t) => (
           <View key={t.id} style={styles.timeRow}>
-            <TouchableOpacity style={styles.timeButton} onPress={() => setShowPickerId(t.id)}>
+            <TouchableOpacity
+              style={styles.timeButton}
+              onPress={() => setShowPickerId(t.id)}
+            >
               <Text style={styles.timeText}>{formatTime(t.time)}</Text>
             </TouchableOpacity>
 
             {times.length > 1 && (
-              <TouchableOpacity style={styles.delButton} onPress={() => deleteTime(t.id)}>
+              <TouchableOpacity
+                style={styles.delButton}
+                onPress={() => deleteTime(t.id)}
+              >
                 <Text style={styles.delButtonText}>x</Text>
               </TouchableOpacity>
             )}
@@ -298,27 +414,33 @@ export default function EditMedicationScreen() {
         ))}
 
         <TouchableOpacity style={styles.saveButton} onPress={saveMedication}>
-          <Text style={{ color: 'white', fontSize: 18 }}>Update Medication</Text>
+          <Text style={{ color: 'white', fontSize: 18 }}>
+            Update Medication
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteMedication}>
-          <Text style={{ color: 'white', fontSize: 16 }}>Delete this medication</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDeleteMedication}
+        >
+          <Text style={{ color: 'white', fontSize: 16 }}>
+            Delete this medication
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// styles 保持原样
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff', padding: 20 },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   backButton: {
     width: 42,
     height: 42,
@@ -327,14 +449,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   backButtonText: { color: '#555', fontSize: 20, fontWeight: '700' },
-
-  placeholder: {
-    width: 50,
-    height: 40,
-  },
-
+  placeholder: { width: 50, height: 40 },
   title: { fontSize: 22, fontWeight: '700', marginBottom: 18, color: '#333' },
-
   fieldLabel: {
     fontSize: 16,
     color: '#333',
@@ -342,7 +458,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
   },
-
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -352,7 +467,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 6,
   },
-
   sectionTitle: {
     fontSize: 16,
     color: '#333',
@@ -360,12 +474,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 8,
   },
-
-  colorContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 12,
-  },
+  colorContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
   colorCircle: {
     width: 40,
     height: 40,
@@ -375,11 +484,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  selectedColor: {
-    borderColor: '#000',
-    borderWidth: 3,
-  },
-
+  selectedColor: { borderColor: '#000', borderWidth: 3 },
   timeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -395,7 +500,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 8,
   },
-
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,11 +512,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flex: 1,
   },
-  timeText: {
-    fontSize: 18,
-    color: '#333',
-    fontWeight: '600',
-  },
+  timeText: { fontSize: 18, color: '#333', fontWeight: '600' },
   delButton: {
     position: 'absolute',
     right: -8,
@@ -430,7 +530,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: 'bold',
   },
-
   saveButton: {
     backgroundColor: '#4e73df',
     padding: 14,
@@ -438,7 +537,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 22,
   },
-
   deleteButton: {
     backgroundColor: '#999',
     padding: 14,
@@ -447,7 +545,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 20,
   },
-
   pickerOverlay: {
     position: 'absolute',
     top: 0,
@@ -458,7 +555,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   pickerBackdrop: {
     position: 'absolute',
     top: 0,
@@ -467,7 +563,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-
   pickerContainer: {
     backgroundColor: '#fff',
     borderRadius: 12,

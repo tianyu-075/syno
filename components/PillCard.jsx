@@ -1,18 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
 
 const screenWidth = Dimensions.get('window').width;
 
 const PillCard = ({ medication, onEdit }) => {
-
-
   const handleEdit = () => {
     console.log('PillCard edit pressed for:', medication.name);
     if (onEdit) {
       onEdit(medication);
     }
   };
-
 
   const formatTime = (times) => {
     if (!times || times.length === 0) return '--:--';
@@ -35,10 +38,12 @@ const PillCard = ({ medication, onEdit }) => {
     });
 
     // Format the sorted times
-    return sortedTimes.map(t => {
-      const time = t.time instanceof Date ? t.time : new Date(t.time);
-      return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-    }).join(', ');
+    return sortedTimes
+      .map((t) => {
+        const time = t.time instanceof Date ? t.time : new Date(t.time);
+        return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+      })
+      .join(', ');
   };
 
   return (
@@ -48,21 +53,20 @@ const PillCard = ({ medication, onEdit }) => {
       activeOpacity={0.7}
       testID={`medication-card-${medication.id}`}
     >
- 
-      
-
-     <View style={styles.colorBarContainer}>
+      <View style={styles.colorBarContainer}>
         <View style={styles.whiteHalf} />
-        <View style={[styles.colorHalf, { backgroundColor: medication.color || '#4e73df' }]} />
-      
-     </View>
-
+        <View
+          style={[
+            styles.colorHalf,
+            { backgroundColor: medication.color || '#4e73df' },
+          ]}
+        />
+      </View>
 
       <View style={styles.center}>
         <Text style={styles.name}>{medication.name}</Text>
         <Text style={styles.note}>{medication.note || 'No notes'}</Text>
       </View>
-
 
       <View style={styles.right}>
         <Text style={styles.dosage}>{medication.dosage || ''}</Text>
@@ -90,7 +94,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  
+
   colorBarContainer: {
     width: 18,
     height: '100%',
@@ -109,7 +113,6 @@ const styles = StyleSheet.create({
   colorHalf: {
     flex: 1,
   },
-
 
   center: {
     flex: 1,
@@ -141,6 +144,5 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 });
-
 
 export default PillCard;

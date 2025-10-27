@@ -21,7 +21,9 @@ export default function MedicationsScreen() {
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [note, setNote] = useState('');
-  const [times, setTimes] = useState([{ id: Date.now(), time: null }]);
+  const [times, setTimes] = useState([
+    { id: Date.now(), time: null, notificationId: null },
+  ]);
   const [color, setColor] = useState('#4e73df');
   const [allergies, setAllergies] = useState([]);
   const [medications, setMedications] = useState([]);
@@ -31,13 +33,10 @@ export default function MedicationsScreen() {
     loadData();
   }, []);
 
-  // Reload medications whenever the screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('MedicationsScreen focused - reloading data');
       loadData();
     });
-
     return unsubscribe;
   }, [navigation]);
 
@@ -45,62 +44,44 @@ export default function MedicationsScreen() {
     try {
       const meds = await AsyncStorage.getItem('medications');
       const allergyData = await AsyncStorage.getItem('allergies');
-      console.log('Raw allergy data from storage:', allergyData);
       if (meds) {
-        const parsedMeds = JSON.parse(meds);
+        const parsedMeds = JSON.parse(meds).map((med) => ({
+          ...med,
+          times: med.times.map((t) => ({
+            ...t,
+            time: t.time ? new Date(t.time) : null,
+          })),
+        }));
         setMedications(parsedMeds);
-        console.log('Loaded medications:', parsedMeds.length);
       }
-      if (allergyData) {
-        const parsedAllergies = JSON.parse(allergyData);
-        console.log('Parsed allergies:', parsedAllergies);
-        setAllergies(parsedAllergies);
-        console.log('Loaded allergies:', parsedAllergies.length);
-      } else {
-        console.log('No allergies found in storage');
-      }
+      if (allergyData) setAllergies(JSON.parse(allergyData));
       clearForm();
     } catch (e) {
       console.warn('Failed loading stored data', e);
     }
   };
 
-  const updateMedicationNotifications = async (existingMed, medicationData, newTimes) => {
-    try {
-      if (existingMed) await Notifications.cancelAllScheduledNotificationsAsync();
-
-      for (const t of newTimes) {
-        const date = t.time instanceof Date ? t.time : new Date(t.time);
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Medication Reminder',
-            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
-          },
-          trigger: {
-            hour: date.getHours(),
-            minute: date.getMinutes(),
-            repeats: true,
-          },
-        });
-      }
-    } catch (e) {
-      console.warn('Notification update error', e);
-    }
-  };
-
   const addTime = () => {
-    setTimes((prev) => [...prev, { id: Date.now(), time: null }]);
+    setTimes((prev) => [
+      ...prev,
+      { id: Date.now(), time: null, notificationId: null },
+    ]);
   };
 
   const ensureDateObject = (dateValue) => {
-    if (dateValue instanceof Date) return dateValue;
-    if (typeof dateValue === 'string' || typeof dateValue === 'number') return new Date(dateValue);
-    if (dateValue === null) return new Date(); // For new time slots, use current time as picker default
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
+    if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+      const date = new Date(dateValue);
+      return isNaN(date) ? new Date() : date;
+    }
+    if (dateValue === null) return new Date();
     return new Date();
   };
 
   const updateTime = (id, selectedDate) => {
-    const updated = times.map((t) => (t.id === id ? { ...t, time: selectedDate } : t));
+    const updated = times.map((t) =>
+      t.id === id ? { ...t, time: selectedDate } : t
+    );
     setTimes(updated);
     setShowPickerId(null);
   };
@@ -111,6 +92,37 @@ export default function MedicationsScreen() {
     } else {
       Alert.alert('Cannot Delete', 'At least one time slot is required.');
     }
+  };
+
+  const scheduleNotifications = async (medicationData) => {
+    const updatedTimes = [];
+    for (const t of medicationData.times) {
+      if (!t.time) continue;
+      let triggerDate = new Date();
+      triggerDate.setHours(t.time.getHours(), t.time.getMinutes(), 0, 0);
+      if (triggerDate <= new Date())
+        triggerDate.setDate(triggerDate.getDate() + 1);
+
+      const trigger = {
+        hour: triggerDate.getHours(),
+        minute: triggerDate.getMinutes(),
+        repeats: true,
+      };
+
+      try {
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Medication Reminder',
+            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
+          },
+          trigger,
+        });
+        updatedTimes.push({ ...t, notificationId });
+      } catch (e) {
+        console.warn('Failed to schedule notification', e);
+      }
+    }
+    return updatedTimes;
   };
 
   const saveMedication = async () => {
@@ -127,17 +139,13 @@ export default function MedicationsScreen() {
       return;
     }
 
-    console.log('Checking allergies for:', name.trim().toLowerCase());
-    console.log('Current allergies:', allergies);
-
-    const matchingAllergy = allergies.find(
-      (allergy) => {
-        const allergyName = typeof allergy === 'object' ? allergy.name : allergy;
-        return allergyName && allergyName.trim().toLowerCase() === name.trim().toLowerCase();
-      }
-    );
-
-    console.log('Matching allergy found:', matchingAllergy);
+    const matchingAllergy = allergies.find((allergy) => {
+      const allergyName = typeof allergy === 'object' ? allergy.name : allergy;
+      return (
+        allergyName &&
+        allergyName.trim().toLowerCase() === name.trim().toLowerCase()
+      );
+    });
 
     if (matchingAllergy) {
       Alert.alert(
@@ -145,7 +153,11 @@ export default function MedicationsScreen() {
         `Warning: "${name.trim()}" appears in your allergies list. Continue?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Add Anyway', style: 'destructive', onPress: proceedWithAddingMedication },
+          {
+            text: 'Add Anyway',
+            style: 'destructive',
+            onPress: proceedWithAddingMedication,
+          },
         ]
       );
       return;
@@ -157,11 +169,14 @@ export default function MedicationsScreen() {
   const proceedWithAddingMedication = async () => {
     const medicationData = { name: name.trim(), dosage, note, color, times };
     try {
-      const newMed = { id: Date.now(), ...medicationData };
+      // Schedule notifications and get notificationIds
+      const updatedTimes = await scheduleNotifications(medicationData);
+
+      const newMed = { id: Date.now(), ...medicationData, times: updatedTimes };
       const updatedMeds = [...medications, newMed];
       await AsyncStorage.setItem('medications', JSON.stringify(updatedMeds));
       setMedications(updatedMeds);
-      await updateMedicationNotifications(null, medicationData, times);
+
       Alert.alert('Success', 'Medication added and reminders set!');
       Keyboard.dismiss();
       clearForm();
@@ -177,7 +192,7 @@ export default function MedicationsScreen() {
     setDosage('');
     setNote('');
     setColor('#4e73df');
-    setTimes([{ id: Date.now(), time: null }]);
+    setTimes([{ id: Date.now(), time: null, notificationId: null }]);
   };
 
   const formatTime = (date) => {
@@ -194,7 +209,6 @@ export default function MedicationsScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Add Medication</Text>
 
-        {/* Name */}
         <Text style={styles.sectionTitle}>Medication Name</Text>
         <TextInput
           style={styles.input}
@@ -204,7 +218,6 @@ export default function MedicationsScreen() {
           placeholderTextColor="#aaa"
         />
 
-        {/* Dosage */}
         <Text style={styles.sectionTitle}>Dosage</Text>
         <TextInput
           style={styles.input}
@@ -214,7 +227,6 @@ export default function MedicationsScreen() {
           placeholderTextColor="#aaa"
         />
 
-        {/* Note */}
         <Text style={styles.sectionTitle}>Note</Text>
         <TextInput
           style={styles.input}
@@ -224,30 +236,45 @@ export default function MedicationsScreen() {
           placeholderTextColor="#aaa"
         />
 
-        {/* Color Picker */}
         <Text style={styles.sectionTitle}>Color tag</Text>
         <View style={styles.colorContainer}>
-          {['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#fd7e14', '#6f42c1'].map(
-            (c) => (
-              <TouchableOpacity
-                key={c}
-                style={[styles.colorCircle, { backgroundColor: c }, color === c && styles.selectedColor]}
-                onPress={() => setColor(c)}
-              />
-            )
-          )}
+          {[
+            '#4e73df',
+            '#1cc88a',
+            '#36b9cc',
+            '#f6c23e',
+            '#e74a3b',
+            '#858796',
+            '#fd7e14',
+            '#6f42c1',
+          ].map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[
+                styles.colorCircle,
+                { backgroundColor: c },
+                color === c && styles.selectedColor,
+              ]}
+              onPress={() => setColor(c)}
+            />
+          ))}
         </View>
 
-        {/* Time Picker */}
         <Text style={styles.sectionTitle}>Reminder time</Text>
         {times.map((t) => (
           <View key={t.id} style={styles.timeRow}>
-            <TouchableOpacity style={styles.timeButton} onPress={() => setShowPickerId(t.id)}>
+            <TouchableOpacity
+              style={styles.timeButton}
+              onPress={() => setShowPickerId(t.id)}
+            >
               <Text style={styles.timeText}>{formatTime(t.time)}</Text>
             </TouchableOpacity>
 
             {times.length > 1 && (
-              <TouchableOpacity style={styles.delButton} onPress={() => deleteTime(t.id)}>
+              <TouchableOpacity
+                style={styles.delButton}
+                onPress={() => deleteTime(t.id)}
+              >
                 <Text style={styles.delButtonText}>x</Text>
               </TouchableOpacity>
             )}
@@ -289,14 +316,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#444',
-    marginBottom: 4,
-    marginTop: 12,
-  },
-
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -306,7 +325,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 6,
   },
-
   sectionTitle: {
     fontSize: 16,
     color: '#333',
@@ -314,12 +332,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 8,
   },
-
-  colorContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 10,
-  },
+  colorContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   colorCircle: {
     width: 38,
     height: 38,
@@ -329,10 +342,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  selectedColor: {
-    borderColor: '#4e73df',
-    transform: [{ scale: 1.1 }],
-  },
+  selectedColor: { borderColor: '#4e73df', transform: [{ scale: 1.1 }] },
   timeRow: {
     backgroundColor: '#eef1f6',
     borderRadius: 10,
@@ -341,13 +351,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     position: 'relative',
   },
-  timeButton: {
-    alignSelf: 'flex-start',
-  },
-  timeText: {
-    fontSize: 16,
-    color: '#333',
-  },
+  timeButton: { alignSelf: 'flex-start' },
+  timeText: { fontSize: 16, color: '#333' },
   delButton: {
     position: 'absolute',
     top: 6,
@@ -359,11 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  delButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  delButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   addButton: {
     backgroundColor: '#4e73df',
     borderRadius: 10,
@@ -372,11 +373,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 16,
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  addButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   saveButton: {
     backgroundColor: '#1cc88a',
     borderRadius: 14,
@@ -387,4 +384,3 @@ const styles = StyleSheet.create({
   },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
 });
-
