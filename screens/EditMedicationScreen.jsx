@@ -191,10 +191,8 @@ export default function EditMedicationScreen() {
     const medicationData = { name: name.trim(), dosage, note, color, times };
 
     try {
-      // 确保有 medication.id，如果不存在，则创建新的
       const medId = medication?.id || Date.now();
 
-      // 取消旧通知
       for (const t of times) {
         if (t.notificationId) {
           try {
@@ -207,7 +205,6 @@ export default function EditMedicationScreen() {
         }
       }
 
-      // 安排新的通知
       const updatedTimes = [];
       for (const t of times) {
         if (!t.time) {
@@ -241,7 +238,6 @@ export default function EditMedicationScreen() {
         times: updatedTimes,
       };
 
-      // 更新 medications 列表
       const finalMeds = medications.some((m) => m.id === medId)
         ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
         : [...medications, finalMedicationData];
@@ -259,7 +255,6 @@ export default function EditMedicationScreen() {
     }
   };
 
-  // 🔹 删除药物
   const handleDeleteMedication = async () => {
     if (!medication?.id) {
       Alert.alert('Error', 'Medication data is missing');

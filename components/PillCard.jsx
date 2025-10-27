@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: screenWidth * 0.92,
+    width: screenWidth * 0.93,
     backgroundColor: '#fff',
     borderRadius: 16,
     marginVertical: 8,
