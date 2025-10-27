@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { useEffect, useState, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import PillCard from '../components/PillCard';
+import * as Notifications from 'expo-notifications';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -24,13 +24,10 @@ export default function HomeScreen() {
 
   const loadMedications = async () => {
     try {
-      const medications = await AsyncStorage.getItem('medications');
-      if (medications) {
-        const medsArray = JSON.parse(medications);
-        console.log('Loaded medications:', medsArray); // Debug log
-        setMedications(medsArray);
+      const meds = await AsyncStorage.getItem('medications');
+      if (meds) {
+        setMedications(JSON.parse(meds));
       } else {
-        console.log('No medications found in storage');
         setMedications([]);
       }
     } catch (e) {
@@ -50,20 +47,6 @@ export default function HomeScreen() {
     }
   };
 
-  const handleRowPress = (medication) => {
-    const rowKey = medication.id.toString();
-
-    // If row is open, close it instead of navigating
-    if (openRowKey === rowKey) {
-      swipeListRef.current?.closeAllOpenRows();
-      setOpenRowKey(null);
-    } else {
-      // Row is closed, navigate to edit
-      console.log('Navigating to edit medication:', medication.name);
-      navigation.navigate('PillScreen', { medication });
-    }
-  };
-
   const handleDeleteMedication = async (medicationId, medicationName) => {
     Alert.alert(
       'Delete Medication',
@@ -75,6 +58,22 @@ export default function HomeScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              const medToDelete = medications.find(
+                (med) => med.id === medicationId
+              );
+              if (medToDelete?.times) {
+                for (const t of medToDelete.times) {
+                  if (t.notificationId) {
+                    try {
+                      await Notifications.cancelScheduledNotificationAsync(
+                        t.notificationId
+                      );
+                    } catch (e) {
+                      console.warn('Cancel notification error', e);
+                    }
+                  }
+                }
+              }
               const updatedMeds = medications.filter(
                 (med) => med.id !== medicationId
               );
@@ -84,7 +83,6 @@ export default function HomeScreen() {
               );
               setMedications(updatedMeds);
               Alert.alert('Success', 'Medication deleted successfully');
-              console.log('Medication deleted, updated meds:', updatedMeds);
             } catch (e) {
               console.warn('Failed to delete medication', e);
               Alert.alert('Error', 'Failed to delete medication');
@@ -100,14 +98,11 @@ export default function HomeScreen() {
     loadUserData();
   }, []);
 
-  // Reload medications whenever the screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('HomeScreen focused - reloading medications');
       loadMedications();
-      loadUserData(); // Also reload user data in case profile picture changed
+      loadUserData();
     });
-
     return unsubscribe;
   }, [navigation]);
 
@@ -121,16 +116,6 @@ export default function HomeScreen() {
       </TouchableOpacity>
     </View>
   );
-
-  const onRowOpen = (rowKey) => {
-    setOpenRowKey(rowKey);
-  };
-
-  const onRowClose = (rowKey) => {
-    if (openRowKey === rowKey) {
-      setOpenRowKey(null);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -163,7 +148,7 @@ export default function HomeScreen() {
         <SwipeListView
           ref={swipeListRef}
           data={medications}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => item.id?.toString() ?? `temp-${index}`}
           ListHeaderComponent={
             <View style={styles.header}>
               <View style={styles.userSection}>
@@ -187,15 +172,32 @@ export default function HomeScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <PillCard medication={item} onEdit={handleRowPress} />
+            <PillCard
+              medication={item}
+              onEdit={() => {
+                const serializableMedication = {
+                  ...item,
+                  times: item.times.map((t) => ({
+                    ...t,
+                    time:
+                      t.time instanceof Date ? t.time.toISOString() : t.time,
+                  })),
+                };
+                navigation.navigate('PillScreen', {
+                  medication: serializableMedication,
+                });
+              }}
+            />
           )}
           renderHiddenItem={renderHiddenItem}
           rightOpenValue={-80}
           disableRightSwipe
-          closeOnRowPress={false}
+          closeOnRowPress={true}
           closeOnScroll={true}
-          onRowOpen={onRowOpen}
-          onRowClose={onRowClose}
+          onRowOpen={(rowKey) => setOpenRowKey(rowKey)}
+          onRowClose={(rowKey) => {
+            if (openRowKey === rowKey) setOpenRowKey(null);
+          }}
           contentContainerStyle={styles.container}
         />
       )}
@@ -204,23 +206,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-    marginVertical: 6,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  userSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  container: { position: 'relative', marginVertical: 6 },
+  safeArea: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  userSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   profileImage: {
     width: 50,
     height: 50,
@@ -229,19 +218,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#007AFF',
   },
-  greetingSection: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
+  greetingSection: { flex: 1 },
+  title: { fontSize: 28, fontWeight: '700', color: '#333', marginBottom: 4 },
+  subtitle: { fontSize: 16, color: '#666' },
   noMedications: {
     fontSize: 16,
     color: '#999',
@@ -265,14 +244,7 @@ const styles = StyleSheet.create({
     height: '100%',
     borderTopRightRadius: 16,
     borderBottomRightRadius: 16,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-    right: 1,
     marginVertical: 8,
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

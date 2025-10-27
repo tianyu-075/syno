@@ -51,7 +51,7 @@ const PillCard = ({ medication, onEdit }) => {
       style={styles.card}
       onPress={handleEdit}
       activeOpacity={0.7}
-      testID={`medication-card-${medication.id}`}
+      testID={`medication-card-${medication.id || 'unknown'}`}
     >
       <View style={styles.colorBarContainer}>
         <View style={styles.whiteHalf} />

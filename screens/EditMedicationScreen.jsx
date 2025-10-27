@@ -98,11 +98,7 @@ export default function EditMedicationScreen() {
   };
 
   const handleBackPress = () => {
-    if (medication && medication.id) {
-      navigation.navigate('PillScreen', { medication });
-    } else {
-      navigation.navigate('PillScreen');
-    }
+    navigation.navigate('PillScreen', { medication });
   };
 
   const updateTime = (id, selectedDate) => {
@@ -145,15 +141,49 @@ export default function EditMedicationScreen() {
       return;
     }
 
-    const existingMed = medications.find(
-      (m) => m.name === name.trim() && m.id !== medication?.id
-    );
-    if (existingMed) {
-      Alert.alert('This medication already exists in your list');
+    // 检查重复（名字+剂量+备注+颜色+times都相同）
+    const isSameTimes = (times1, times2) => {
+      if (times1.length !== times2.length) return false;
+      const sortTimes1 = [...times1]
+        .map((t) =>
+          t.time instanceof Date
+            ? `${t.time.getHours()}:${t.time.getMinutes()}`
+            : t.time
+        )
+        .sort();
+      const sortTimes2 = [...times2]
+        .map((t) =>
+          t.time instanceof Date
+            ? `${t.time.getHours()}:${t.time.getMinutes()}`
+            : t.time
+        )
+        .sort();
+      return sortTimes1.every((t, idx) => t === sortTimes2[idx]);
+    };
+
+    const checkDuplicate = () => {
+      return medications.some((m) => {
+        if (m.id === medication?.id) return false; // skip self
+        const sameName =
+          m.name.trim().toLowerCase() === name.trim().toLowerCase();
+        const sameDosage = m.dosage === dosage;
+        const sameNote = m.note === note;
+        const sameColor = m.color === color;
+        const sameTimes = isSameTimes(m.times, times);
+        return sameName && sameDosage && sameNote && sameColor && sameTimes;
+      });
+    };
+
+    if (checkDuplicate()) {
+      Alert.alert('This medication reminder already exists in your list');
       return;
     }
 
-    if (allergies.find((a) => a.name === name.trim())) {
+    if (
+      allergies.find(
+        (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase()
+      )
+    ) {
       Alert.alert('This medication is in your allergy list');
       return;
     }
@@ -161,12 +191,10 @@ export default function EditMedicationScreen() {
     const medicationData = { name: name.trim(), dosage, note, color, times };
 
     try {
-      if (!medication || !medication.id) {
-        Alert.alert('Error', 'Medication data is missing');
-        return;
-      }
+      // 确保有 medication.id，如果不存在，则创建新的
+      const medId = medication?.id || Date.now();
 
-      // Cancel old notifications first
+      // 取消旧通知
       for (const t of times) {
         if (t.notificationId) {
           try {
@@ -179,11 +207,7 @@ export default function EditMedicationScreen() {
         }
       }
 
-      const updatedMeds = medications.map((med) =>
-        med.id === medication.id ? { ...med, ...medicationData } : med
-      );
-
-      // Schedule new notifications and save notificationId
+      // 安排新的通知
       const updatedTimes = [];
       for (const t of times) {
         if (!t.time) {
@@ -193,9 +217,9 @@ export default function EditMedicationScreen() {
         const date = ensureDateObject(t.time);
         let triggerDate = new Date();
         triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
-        if (triggerDate <= new Date()) {
+        if (triggerDate <= new Date())
           triggerDate.setDate(triggerDate.getDate() + 1);
-        }
+
         const trigger = {
           hour: triggerDate.getHours(),
           minute: triggerDate.getMinutes(),
@@ -211,11 +235,16 @@ export default function EditMedicationScreen() {
         updatedTimes.push({ ...t, notificationId });
       }
 
-      const finalMedicationData = { ...medicationData, times: updatedTimes };
+      const finalMedicationData = {
+        id: medId,
+        ...medicationData,
+        times: updatedTimes,
+      };
 
-      const finalMeds = updatedMeds.map((med) =>
-        med.id === medication.id ? finalMedicationData : med
-      );
+      // 更新 medications 列表
+      const finalMeds = medications.some((m) => m.id === medId)
+        ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
+        : [...medications, finalMedicationData];
 
       await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
       setMedications(finalMeds);
@@ -230,8 +259,9 @@ export default function EditMedicationScreen() {
     }
   };
 
+  // 🔹 删除药物
   const handleDeleteMedication = async () => {
-    if (!medication || !medication.name || !medication.id) {
+    if (!medication?.id) {
       Alert.alert('Error', 'Medication data is missing');
       return;
     }
@@ -246,7 +276,6 @@ export default function EditMedicationScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Cancel all notifications for this medication
               for (const t of medication.times || []) {
                 if (t.notificationId) {
                   try {
@@ -265,6 +294,7 @@ export default function EditMedicationScreen() {
                 'medications',
                 JSON.stringify(updatedMeds)
               );
+              setMedications(updatedMeds);
               Alert.alert('Deleted', 'Medication removed.');
               navigation.navigate('Main');
             } catch (e) {
@@ -415,7 +445,7 @@ export default function EditMedicationScreen() {
 
         <TouchableOpacity style={styles.saveButton} onPress={saveMedication}>
           <Text style={{ color: 'white', fontSize: 18 }}>
-            Update Medication
+            {medication ? 'Update Medication' : 'Add Medication'}
           </Text>
         </TouchableOpacity>
 
@@ -432,7 +462,6 @@ export default function EditMedicationScreen() {
   );
 }
 
-// styles 保持原样
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff', padding: 20 },

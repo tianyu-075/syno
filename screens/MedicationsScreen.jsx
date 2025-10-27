@@ -45,13 +45,15 @@ export default function MedicationsScreen() {
       const meds = await AsyncStorage.getItem('medications');
       const allergyData = await AsyncStorage.getItem('allergies');
       if (meds) {
-        const parsedMeds = JSON.parse(meds).map((med) => ({
+        const parsedMeds = JSON.parse(meds).map((med, index) => ({
           ...med,
+          id: med.id || Date.now() + index, // Assign id if missing
           times: med.times.map((t) => ({
             ...t,
             time: t.time ? new Date(t.time) : null,
           })),
         }));
+        console.log('Loaded medications in MedicationsScreen:', parsedMeds);
         setMedications(parsedMeds);
       }
       if (allergyData) setAllergies(JSON.parse(allergyData));
