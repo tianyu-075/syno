@@ -248,7 +248,6 @@ export default function MedicationsScreen() {
             '#e74a3b',
             '#858796',
             '#fd7e14',
-            '#6f42c1',
           ].map((c) => (
             <TouchableOpacity
               key={c}
@@ -310,7 +309,10 @@ export default function MedicationsScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f9fafc' },
-  container: { flex: 1, padding: 20 },
+  container: {
+    flex: 1,
+    padding: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -331,7 +333,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
-    marginTop: 20,
+    marginTop: 14,
     marginBottom: 8,
   },
   colorContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },

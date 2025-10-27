@@ -372,7 +372,6 @@ export default function EditMedicationScreen() {
             '#e74a3b',
             '#858796',
             '#fd7e14',
-            '#6f42c1',
           ].map((c) => (
             <TouchableOpacity
               key={c}
