@@ -74,10 +74,9 @@ export default function MedicationsScreen() {
     if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
     if (typeof dateValue === 'string' || typeof dateValue === 'number') {
       const date = new Date(dateValue);
-      return isNaN(date) ? new Date() : date;
+      return isNaN(date) ? null : date;
     }
-    if (dateValue === null) return new Date();
-    return new Date();
+    return null;
   };
 
   const updateTime = (id, selectedDate) => {
@@ -282,7 +281,7 @@ export default function MedicationsScreen() {
 
             {showPickerId === t.id && (
               <DateTimePicker
-                value={ensureDateObject(t.time)}
+                value={ensureDateObject(t.time) || new Date()}
                 mode="time"
                 is24Hour={true}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}

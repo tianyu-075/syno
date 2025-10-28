@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -13,9 +14,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function PillScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const [currentMedication, setCurrentMedication] = useState(
-    route.params?.medication || null
-  );
+
+  const [currentMedication, setCurrentMedication] = useState(() => {
+    const med = route.params?.medication || null;
+    if (!med) return null;
+    return {
+      ...med,
+      times: med.times?.map((t) => ({
+        ...t,
+        time: t.time ? new Date(t.time) : null,
+      })),
+    };
+  });
 
   useEffect(() => {
     const refreshMedicationData = async () => {
@@ -27,7 +37,15 @@ export default function PillScreen() {
             const updatedMed = medicationsArray.find(
               (m) => m.id === currentMedication.id
             );
-            if (updatedMed) setCurrentMedication(updatedMed);
+            if (updatedMed) {
+              setCurrentMedication({
+                ...updatedMed,
+                times: updatedMed.times?.map((t) => ({
+                  ...t,
+                  time: t.time ? new Date(t.time) : null,
+                })),
+              });
+            }
           }
         } catch (e) {
           console.warn('Failed to refresh medication data', e);
@@ -42,34 +60,40 @@ export default function PillScreen() {
   const formatTime = (times) => {
     if (!times || times.length === 0) return '--:--';
 
-    // Sort times from smallest to largest (0-24 hour format)
-    const sortedTimes = times.sort((a, b) => {
+    const sortedTimes = [...times].sort((a, b) => {
       const timeA = a.time instanceof Date ? a.time : new Date(a.time);
       const timeB = b.time instanceof Date ? b.time : new Date(b.time);
-
-      const hourA = timeA.getHours();
-      const hourB = timeB.getHours();
-
-      // First sort by hour
-      if (hourA !== hourB) {
-        return hourA - hourB;
-      }
-
-      // If hours are equal, sort by minute
+      if (timeA.getHours() !== timeB.getHours())
+        return timeA.getHours() - timeB.getHours();
       return timeA.getMinutes() - timeB.getMinutes();
     });
 
-    // Format the sorted times
     return sortedTimes
       .map((t) => {
         const time = t.time instanceof Date ? t.time : new Date(t.time);
-        return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+        return `${time.getHours().toString().padStart(2, '0')}:${time
+          .getMinutes()
+          .toString()
+          .padStart(2, '0')}`;
       })
       .join(', ');
   };
 
   const navigateToEdit = () => {
-    navigation.navigate('EditMedication', { medication: currentMedication });
+    if (!currentMedication) {
+      Alert.alert('Error', 'No medication data to edit.');
+      return;
+    }
+
+    navigation.navigate('EditMedication', {
+      medication: {
+        ...currentMedication,
+        times: currentMedication.times?.map((t) => ({
+          ...t,
+          time: t.time ? t.time.toISOString() : null,
+        })),
+      },
+    });
   };
 
   if (!currentMedication) {

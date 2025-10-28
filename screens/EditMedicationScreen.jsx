@@ -19,7 +19,17 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 export default function EditMedicationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { medication } = route.params || {};
+  const medication = route.params?.medication;
+  if (!medication) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.errorText}>⚠️ No medication data received.</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
@@ -83,10 +93,9 @@ export default function EditMedicationScreen() {
     if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue;
     if (typeof dateValue === 'string' || typeof dateValue === 'number') {
       const date = new Date(dateValue);
-      return isNaN(date) ? new Date() : date;
+      return isNaN(date) ? null : date;
     }
-    if (dateValue === null) return new Date();
-    return new Date();
+    return null;
   };
 
   const addTime = () => {
@@ -131,7 +140,10 @@ export default function EditMedicationScreen() {
   const formatTime = (date) => {
     if (!date) return 'Set time';
     return date instanceof Date
-      ? `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+      ? `${date.getHours().toString().padStart(2, '0')}:${date
+          .getMinutes()
+          .toString()
+          .padStart(2, '0')}`
       : 'Set time';
   };
 
@@ -141,7 +153,6 @@ export default function EditMedicationScreen() {
       return;
     }
 
-    // 检查重复（名字+剂量+备注+颜色+times都相同）
     const isSameTimes = (times1, times2) => {
       if (times1.length !== times2.length) return false;
       const sortTimes1 = [...times1]
@@ -163,7 +174,7 @@ export default function EditMedicationScreen() {
 
     const checkDuplicate = () => {
       return medications.some((m) => {
-        if (m.id === medication?.id) return false; // skip self
+        if (m.id === medication?.id) return false;
         const sameName =
           m.name.trim().toLowerCase() === name.trim().toLowerCase();
         const sameDosage = m.dosage === dosage;
@@ -179,80 +190,119 @@ export default function EditMedicationScreen() {
       return;
     }
 
-    if (
-      allergies.find(
-        (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase()
-      )
-    ) {
-      Alert.alert('This medication is in your allergy list');
+    const allergyMatch = allergies.find((a) => {
+      const allergyName = typeof a === 'object' ? a.name : a;
+      return (
+        allergyName &&
+        allergyName.trim().toLowerCase() === name.trim().toLowerCase()
+      );
+    });
+
+    const performSave = async () => {
+      const medicationData = { name: name.trim(), dosage, note, color, times };
+
+      try {
+        const medId = medication?.id || Date.now();
+
+        if (medication?.id) {
+          for (const t of times) {
+            if (t.notificationId) {
+              try {
+                await Notifications.cancelScheduledNotificationAsync(
+                  t.notificationId
+                );
+              } catch (e) {
+                console.warn('Cancel notification error', e);
+              }
+            }
+          }
+        }
+
+        const updatedTimes = [];
+        const now = new Date();
+
+        for (const t of times) {
+          const date = ensureDateObject(t.time);
+          if (!date) {
+            updatedTimes.push({ ...t, notificationId: null });
+            continue;
+          }
+
+          let triggerDate = new Date(now);
+          triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+          if (triggerDate <= now)
+            triggerDate.setDate(triggerDate.getDate() + 1);
+
+          const trigger = {
+            hour: triggerDate.getHours(),
+            minute: triggerDate.getMinutes(),
+            repeats: true,
+          };
+
+          try {
+            const notificationId =
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: 'Medication Reminder',
+                  body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
+                },
+                trigger,
+              });
+            updatedTimes.push({ ...t, notificationId });
+          } catch (e) {
+            console.warn('Failed to schedule notification', e);
+            updatedTimes.push({ ...t, notificationId: null });
+          }
+        }
+
+        const finalMedicationData = {
+          id: medId,
+          ...medicationData,
+          times: updatedTimes,
+        };
+
+        const finalMeds = medications.some((m) => m.id === medId)
+          ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
+          : [...medications, finalMedicationData];
+
+        await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
+        setMedications(finalMeds);
+
+        Alert.alert('Success', 'Medication updated successfully!');
+        Keyboard.dismiss();
+        setHasUnsavedChanges(false);
+        navigation.navigate('PillScreen', {
+          medication: {
+            ...finalMedicationData,
+            times: finalMedicationData.times.map((t) => ({
+              ...t,
+              time: t.time ? t.time.toISOString() : null,
+            })),
+          },
+        });
+      } catch (e) {
+        console.warn('Save error', e);
+        Alert.alert('Error', 'Failed to update medication');
+      }
+    };
+
+    if (allergyMatch) {
+      Alert.alert(
+        'Allergy Warning',
+        `Warning: "${name.trim()}" appears in your allergies list. Continue saving?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Save Anyway',
+            style: 'destructive',
+            onPress: () => performSave(),
+          },
+        ]
+      );
       return;
     }
 
-    const medicationData = { name: name.trim(), dosage, note, color, times };
-
-    try {
-      const medId = medication?.id || Date.now();
-
-      for (const t of times) {
-        if (t.notificationId) {
-          try {
-            await Notifications.cancelScheduledNotificationAsync(
-              t.notificationId
-            );
-          } catch (e) {
-            console.warn('Cancel notification error', e);
-          }
-        }
-      }
-
-      const updatedTimes = [];
-      for (const t of times) {
-        if (!t.time) {
-          updatedTimes.push({ ...t, notificationId: null });
-          continue;
-        }
-        const date = ensureDateObject(t.time);
-        let triggerDate = new Date();
-        triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
-        if (triggerDate <= new Date())
-          triggerDate.setDate(triggerDate.getDate() + 1);
-
-        const trigger = {
-          hour: triggerDate.getHours(),
-          minute: triggerDate.getMinutes(),
-          repeats: true,
-        };
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Medication Reminder',
-            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
-          },
-          trigger,
-        });
-        updatedTimes.push({ ...t, notificationId });
-      }
-
-      const finalMedicationData = {
-        id: medId,
-        ...medicationData,
-        times: updatedTimes,
-      };
-
-      const finalMeds = medications.some((m) => m.id === medId)
-        ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
-        : [...medications, finalMedicationData];
-
-      await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
-      setMedications(finalMeds);
-
-      Alert.alert('Success', 'Medication updated successfully!');
-      Keyboard.dismiss();
-      setHasUnsavedChanges(false);
-      navigation.navigate('PillScreen', { medication: finalMedicationData });
-    } catch (e) {
-      console.warn('Save error', e);
-      Alert.alert('Error', 'Failed to update medication');
-    }
+    await performSave();
   };
 
   const handleDeleteMedication = async () => {
@@ -422,7 +472,7 @@ export default function EditMedicationScreen() {
                 />
                 <View style={styles.pickerContainer}>
                   <DateTimePicker
-                    value={ensureDateObject(t.time)}
+                    value={ensureDateObject(t.time) || new Date()}
                     mode="time"
                     is24Hour={true}
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -519,9 +569,6 @@ const styles = StyleSheet.create({
     color: '#4e73df',
     fontSize: 15,
     fontWeight: '600',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 8,
   },
   timeRow: {
     flexDirection: 'row',
