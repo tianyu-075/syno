@@ -152,6 +152,10 @@ export default function EditMedicationScreen() {
       Alert.alert('Please enter a medication name.');
       return;
     }
+    if (!hasUnsavedChanges) {
+      navigation.navigate('PillScreen', { medication });
+      return;
+    }
 
     const isSameTimes = (times1, times2) => {
       if (times1.length !== times2.length) return false;
