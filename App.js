@@ -35,22 +35,35 @@ export default function App() {
   useEffect(() => {
     async function setupNotifications() {
       console.log('Starting notification setup');
-      const { status } = await Notifications.getPermissionsAsync();
-      console.log('Notification permissions status:', status, typeof status);
+
+      const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+      console.log('Notification permission status:', status);
+
       if (status !== 'granted') {
-        console.log('Requesting permissions');
-        await Notifications.requestPermissionsAsync();
-        console.log('Permissions requested');
+        if (canAskAgain) {
+          console.log('Requesting permissions...');
+          const { status: newStatus } =
+            await Notifications.requestPermissionsAsync();
+          console.log('New permission status:', newStatus);
+        } else {
+          Alert.alert(
+            'Notifications disabled',
+            'Please enable notifications manually in Settings.'
+          );
+        }
       }
 
       if (Platform.OS === 'android') {
         console.log('Setting Android notification channel');
-        await Notifications.setNotificationChannelAsync('meds', {
+        await Notifications.setNotificationChannelAsync('default', {
           name: 'Medication Reminders',
           importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
         });
         console.log('Android channel set');
       }
+
       console.log('Notification setup complete');
     }
 
@@ -58,38 +71,25 @@ export default function App() {
 
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
-        console.log('Notification received:', notification);
-        if (notification.request.trigger) {
-          console.log(
-            'Notification request trigger:',
-            notification.request.trigger,
-            {
-              triggerTypes: {
-                hour: typeof notification.request.trigger.hour,
-                minute: typeof notification.request.trigger.minute,
-                repeats: typeof notification.request.trigger.repeats,
-              },
-            }
-          );
-        } else {
-          console.log('Notification trigger is null');
-        }
+        console.log('📬 Notification received:', notification);
       });
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         console.log(
-          'Notification response:',
+          '🔔 User tapped notification:',
           response.notification.request.content
         );
       });
 
     return () => {
       if (notificationListener.current) {
-        notificationListener.current.remove();
+        Notifications.removeNotificationSubscription(
+          notificationListener.current
+        );
       }
       if (responseListener.current) {
-        responseListener.current.remove();
+        Notifications.removeNotificationSubscription(responseListener.current);
       }
     };
   }, []);

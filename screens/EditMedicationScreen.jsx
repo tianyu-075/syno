@@ -110,11 +110,20 @@ export default function EditMedicationScreen() {
     navigation.navigate('PillScreen', { medication });
   };
 
-  const updateTime = (id, selectedDate) => {
-    const updated = times.map((t) =>
-      t.id === id ? { ...t, time: selectedDate } : t
+  const updateTime = async (id, selectedDate) => {
+    setTimes((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          if (t.notificationId) {
+            Notifications.cancelScheduledNotificationAsync(
+              t.notificationId
+            ).catch((e) => console.warn('Cancel notification error', e));
+          }
+          return { ...t, time: selectedDate, notificationId: null };
+        }
+        return t;
+      })
     );
-    setTimes(updated);
     setShowPickerId(null);
     setHasUnsavedChanges(true);
   };
@@ -159,21 +168,16 @@ export default function EditMedicationScreen() {
 
     const isSameTimes = (times1, times2) => {
       if (times1.length !== times2.length) return false;
-      const sortTimes1 = [...times1]
-        .map((t) =>
-          t.time instanceof Date
-            ? `${t.time.getHours()}:${t.time.getMinutes()}`
-            : t.time
-        )
-        .sort();
-      const sortTimes2 = [...times2]
-        .map((t) =>
-          t.time instanceof Date
-            ? `${t.time.getHours()}:${t.time.getMinutes()}`
-            : t.time
-        )
-        .sort();
-      return sortTimes1.every((t, idx) => t === sortTimes2[idx]);
+      const normalize = (arr) =>
+        [...arr]
+          .map((t) =>
+            t.time instanceof Date
+              ? `${t.time.getHours()}:${t.time.getMinutes()}`
+              : t.time
+          )
+          .sort()
+          .join(',');
+      return normalize(times1) === normalize(times2);
     };
 
     const checkDuplicate = () => {
@@ -202,79 +206,84 @@ export default function EditMedicationScreen() {
       );
     });
 
-    const performSave = async () => {
-      const medicationData = { name: name.trim(), dosage, note, color, times };
+    const scheduleNotification = async (medicationData, t) => {
+      const date = ensureDateObject(t.time);
+      if (!date) return { ...t, notificationId: null };
+
+      const now = new Date();
+      let triggerDate = new Date(now);
+      triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      if (triggerDate <= now) triggerDate.setDate(triggerDate.getDate() + 1);
+
+      const trigger = {
+        hour: triggerDate.getHours(),
+        minute: triggerDate.getMinutes(),
+        repeats: true,
+      };
 
       try {
-        const medId = medication?.id || Date.now();
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Medication Reminder',
+            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
+          },
+          trigger,
+        });
+        return { ...t, notificationId };
+      } catch (e) {
+        console.warn('Failed to schedule notification', e);
+        return { ...t, notificationId: null };
+      }
+    };
 
-        if (medication?.id) {
-          for (const t of times) {
-            if (t.notificationId) {
-              try {
-                await Notifications.cancelScheduledNotificationAsync(
-                  t.notificationId
-                );
-              } catch (e) {
-                console.warn('Cancel notification error', e);
-              }
+    const performSave = async () => {
+      const medId = medication?.id || Date.now();
+      const medicationData = {
+        id: medId,
+        name: name.trim(),
+        dosage,
+        note,
+        color,
+        times,
+      };
+
+      // 先取消旧通知，防止重复触发
+      if (medication?.times) {
+        for (const t of medication.times) {
+          if (t.notificationId) {
+            try {
+              await Notifications.cancelScheduledNotificationAsync(
+                t.notificationId
+              );
+            } catch (e) {
+              console.warn('Cancel old notification error', e);
             }
           }
         }
+      }
 
-        const updatedTimes = [];
-        const now = new Date();
+      // 重新调度新通知
+      const updatedTimes = [];
+      for (const t of times) {
+        const scheduled = await scheduleNotification(medicationData, t);
+        updatedTimes.push(scheduled);
+      }
 
-        for (const t of times) {
-          const date = ensureDateObject(t.time);
-          if (!date) {
-            updatedTimes.push({ ...t, notificationId: null });
-            continue;
-          }
+      const finalMedicationData = {
+        ...medicationData,
+        times: updatedTimes,
+      };
 
-          let triggerDate = new Date(now);
-          triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
-          if (triggerDate <= now)
-            triggerDate.setDate(triggerDate.getDate() + 1);
+      const finalMeds = medications.some((m) => m.id === medId)
+        ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
+        : [...medications, finalMedicationData];
 
-          const trigger = {
-            hour: triggerDate.getHours(),
-            minute: triggerDate.getMinutes(),
-            repeats: true,
-          };
-
-          try {
-            const notificationId =
-              await Notifications.scheduleNotificationAsync({
-                content: {
-                  title: 'Medication Reminder',
-                  body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
-                },
-                trigger,
-              });
-            updatedTimes.push({ ...t, notificationId });
-          } catch (e) {
-            console.warn('Failed to schedule notification', e);
-            updatedTimes.push({ ...t, notificationId: null });
-          }
-        }
-
-        const finalMedicationData = {
-          id: medId,
-          ...medicationData,
-          times: updatedTimes,
-        };
-
-        const finalMeds = medications.some((m) => m.id === medId)
-          ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
-          : [...medications, finalMedicationData];
-
+      try {
         await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
         setMedications(finalMeds);
-
+        setHasUnsavedChanges(false);
         Alert.alert('Success', 'Medication updated successfully!');
         Keyboard.dismiss();
-        setHasUnsavedChanges(false);
         navigation.navigate('PillScreen', {
           medication: {
             ...finalMedicationData,
