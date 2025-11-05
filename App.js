@@ -23,7 +23,6 @@ Notifications.setNotificationHandler({
 });
 
 export default function App() {
-  const [triggerDate, setTriggerDate] = useState(new Date(Date.now() + 60000));
   const notificationListener = useRef();
   const responseListener = useRef();
   const appState = useRef(AppState.currentState);
@@ -50,12 +49,15 @@ export default function App() {
 
       // ✅ Android
       if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'Medication Reminders',
-          importance: Notifications.AndroidImportance.HIGH,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
+        const channels = await Notifications.getNotificationChannelsAsync();
+        if (!channels.find((c) => c.id === 'default')) {
+          await Notifications.setNotificationChannelAsync('default', {
+            name: 'Medication Reminders',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+          });
+        }
       }
 
       console.log('🎉 Notification setup complete.');
