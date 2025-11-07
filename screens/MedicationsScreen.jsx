@@ -53,7 +53,7 @@ export default function MedicationsScreen() {
             time: t.time ? new Date(t.time) : null,
           })),
         }));
-        console.log('Loaded medications in MedicationsScreen:', parsedMeds);
+        console.log('Loaded medications in MedicationsScreen:', parsedMeds, parsedMeds.forEach(m => console.log(m.times)));
         setMedications(parsedMeds);
       }
       if (allergyData) setAllergies(JSON.parse(allergyData));

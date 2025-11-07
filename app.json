@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "syno",
+    "name": "Syno",
     "slug": "syno",
-    "version": "1.0.0",
+    "version": "1.6.0",
+    "description": "Smart medication reminders to help you stay on schedule and healthy.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,8 +15,9 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tianyu.syno",
+      "bundleIdentifier": "com.barcelonacodeschool.syno",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": ["remote-notification"]
       }
     },
@@ -25,8 +27,12 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["POST_NOTIFICATIONS", "VIBRATE"],
-      "package": "com.tianyu.syno"
+      "versionCode": 6,
+      "package": "com.barcelonacodeschool.syno",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/icon.png"
@@ -36,10 +42,15 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#ffffff",
+          "color": "#fff",
           "sounds": []
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b82e1ff5-fa99-4043-8433-42eeb59dbda0"
+      }
+    }
   }
 }
