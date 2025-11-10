@@ -16,7 +16,8 @@ const Stack = createStackNavigator();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -133,8 +134,9 @@ export default function App() {
           const minute = timeObj.getMinutes();
 
           const trigger = {
-            hour,
-            minute,
+            type: 'daily',
+            hour: triggerDate.getHours(),
+            minute: triggerDate.getMinutes(),
             repeats: true,
           };
 
