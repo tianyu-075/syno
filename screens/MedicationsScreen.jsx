@@ -105,6 +105,7 @@ export default function MedicationsScreen() {
         triggerDate.setDate(triggerDate.getDate() + 1);
 
       const trigger = {
+        type: 'daily',
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
         repeats: true,
