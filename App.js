@@ -133,6 +133,14 @@ export default function App() {
           const hour = timeObj.getHours();
           const minute = timeObj.getMinutes();
 
+          // inside for loop where timeObj is available
+          // compute triggerDate same as when scheduling in EditMedicationScreen
+          const now = new Date();
+          const triggerDate = new Date(now);
+          triggerDate.setHours(timeObj.getHours(), timeObj.getMinutes(), 0, 0);
+          if (triggerDate <= now)
+            triggerDate.setDate(triggerDate.getDate() + 1);
+
           const trigger = {
             type: 'daily',
             hour: triggerDate.getHours(),
