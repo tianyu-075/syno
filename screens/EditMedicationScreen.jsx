@@ -42,7 +42,6 @@ export default function EditMedicationScreen() {
   const [medications, setMedications] = useState([]);
   const [showPickerId, setShowPickerId] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -115,7 +114,12 @@ export default function EditMedicationScreen() {
     setTimes((prev) =>
       prev.map((t) => {
         if (t.id === id) {
-          return { ...t, time: selectedDate };
+          if (t.notificationId) {
+            Notifications.cancelScheduledNotificationAsync(
+              t.notificationId
+            ).catch((e) => console.warn('Cancel notification error', e));
+          }
+          return { ...t, time: selectedDate, notificationId: null };
         }
         return t;
       })
@@ -125,22 +129,24 @@ export default function EditMedicationScreen() {
   };
 
   const deleteTime = async (id) => {
-    if (times.length > 1) {
-      const timeToDelete = times.find((t) => t.id === id);
-      if (timeToDelete?.notificationId) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(
-            timeToDelete.notificationId
-          );
-        } catch (e) {
-          console.warn('Cancel notification error', e);
-        }
+    setTimes((prev) => {
+      if (prev.length <= 1) {
+        Alert.alert('Cannot Delete', 'At least one time slot is required.');
+        return prev;
       }
-      setTimes((prev) => prev.filter((t) => t.id !== id));
-    } else {
-      Alert.alert('Cannot Delete', 'At least one time slot is required.');
-    }
+
+      const timeToDelete = prev.find((t) => t.id === id);
+      if (timeToDelete?.notificationId) {
+        Notifications.cancelScheduledNotificationAsync(timeToDelete.notificationId)
+          .catch((e) => console.warn('Cancel notification error', e));
+      }
+
+      const updatedTimes = prev.filter((t) => t.id !== id);
+      setHasUnsavedChanges(true);
+      return updatedTimes;
+    });
   };
+
 
   const formatTime = (date) => {
     if (!date) return 'Set time';
@@ -153,7 +159,6 @@ export default function EditMedicationScreen() {
   };
 
   const saveMedication = async () => {
-    if (saving) return;
     if (!name.trim()) {
       Alert.alert('Please enter a medication name.');
       return;
@@ -164,19 +169,18 @@ export default function EditMedicationScreen() {
     }
 
     const isSameTimes = (times1, times2) => {
-      if (!Array.isArray(times1) || !Array.isArray(times2)) return false;
       if (times1.length !== times2.length) return false;
-
-      const toKey = (t) => {
-        const d = ensureDateObject(t.time);
-        if (!d) return '';
-        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-      };
-
-      const normalize = (arr) => [...arr].map(toKey).sort().join(',');
+      const normalize = (arr) =>
+        [...arr]
+          .map((t) =>
+            t.time instanceof Date
+              ? `${t.time.getHours()}:${t.time.getMinutes()}`
+              : t.time
+          )
+          .sort()
+          .join(',');
       return normalize(times1) === normalize(times2);
     };
-
 
     const checkDuplicate = () => {
       return medications.some((m) => {
@@ -206,7 +210,7 @@ export default function EditMedicationScreen() {
 
     const scheduleNotification = async (medicationData, t) => {
       const date = ensureDateObject(t.time);
-      if (!date) return { ...t, notificationId: null, time: null };
+      if (!date) return { ...t, notificationId: null };
 
       const now = new Date();
       let triggerDate = new Date(now);
@@ -224,88 +228,79 @@ export default function EditMedicationScreen() {
         const notificationId = await Notifications.scheduleNotificationAsync({
           content: {
             title: 'Medication Reminder',
-            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note || ''}`,
+            body: `${medicationData.name} ${medicationData.dosage} — ${medicationData.note}`,
           },
           trigger,
         });
-
-        console.log('Scheduled notification', {
-          medId: medicationData.id,
-          hour: trigger.hour,
-          minute: trigger.minute,
-          notificationId,
-        });
-
-
-        return { ...t, notificationId, time: date.toISOString() };
+        return { ...t, notificationId };
       } catch (e) {
         console.warn('Failed to schedule notification', e);
-        return { ...t, notificationId: null, time: date.toISOString() };
+        return { ...t, notificationId: null };
       }
     };
 
     const performSave = async () => {
-      setSaving(true);
-      try {
+      const medId = medication?.id || Date.now();
+      const medicationData = {
+        id: medId,
+        name: name.trim(),
+        dosage,
+        note,
+        color,
+        times,
+      };
 
-        const stored = await AsyncStorage.getItem('medications');
-        const medsFromStorage = stored ? JSON.parse(stored) : [];
 
-        const medId = medication?.id || Date.now();
-
-
-        const medicationData = { id: medId, name, dosage, note, color, times };
-
-        // Cancel old notifications only for this medication
-        for (const t of medication.times || []) {
+      if (medication?.times) {
+        for (const t of medication.times) {
           if (t.notificationId) {
             try {
-              await Notifications.cancelScheduledNotificationAsync(t.notificationId);
+              await Notifications.cancelScheduledNotificationAsync(
+                t.notificationId
+              );
             } catch (e) {
               console.warn('Cancel old notification error', e);
             }
           }
         }
-        const updatedTimes = [];
-        for (const t of times) {
-          const scheduled = await scheduleNotification(medicationData, t);
-          updatedTimes.push(scheduled);
-        }
-
-        const finalMedicationData = { ...medicationData, times: updatedTimes };
+      }
 
 
-        let finalMeds = [];
-        const exists = medsFromStorage.some((m) => m.id === medId);
+      const updatedTimes = [];
+      for (const t of times) {
+        const scheduled = await scheduleNotification(medicationData, t);
+        updatedTimes.push(scheduled);
+      }
 
-        if (exists) {
-          finalMeds = medsFromStorage.map((m) =>
-            m.id === medId ? finalMedicationData : m
-          );
-        } else {
-          finalMeds = [...medsFromStorage, finalMedicationData];
-        }
+      const finalMedicationData = {
+        ...medicationData,
+        times: updatedTimes,
+      };
 
+      const finalMeds = medications.some((m) => m.id === medId)
+        ? medications.map((m) => (m.id === medId ? finalMedicationData : m))
+        : [...medications, finalMedicationData];
 
+      try {
         await AsyncStorage.setItem('medications', JSON.stringify(finalMeds));
         setMedications(finalMeds);
-
-
+        setHasUnsavedChanges(false);
         Alert.alert('Success', 'Medication updated successfully!');
-
-
+        Keyboard.dismiss();
         navigation.navigate('PillScreen', {
-          medication: finalMedicationData,
+          medication: {
+            ...finalMedicationData,
+            times: finalMedicationData.times.map((t) => ({
+              ...t,
+              time: t.time ? t.time.toISOString() : null,
+            })),
+          },
         });
       } catch (e) {
         console.warn('Save error', e);
         Alert.alert('Error', 'Failed to update medication');
-      } finally {
-        setSaving(false);
       }
     };
-
-
 
     if (allergyMatch) {
       Alert.alert(
