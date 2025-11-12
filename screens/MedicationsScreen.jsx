@@ -152,7 +152,7 @@ export default function MedicationsScreen() {
     if (matchingAllergy) {
       Alert.alert(
         'Allergy Warning',
-        `Warning: "${name.trim()}" appears in your allergies list. Continue?`,
+        `Warning: "${name.trim()}" matches one in your allergy list. Please confirm with your doctor or pharmacist.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {

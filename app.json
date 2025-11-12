@@ -2,7 +2,7 @@
   "expo": {
     "name": "syno",
     "slug": "syno",
-    "version": "1.0.0",
+    "version": "1.8.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,6 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "versionCode": 8,
       "permissions": ["POST_NOTIFICATIONS", "VIBRATE"],
       "package": "com.tianyu.syno"
     },
