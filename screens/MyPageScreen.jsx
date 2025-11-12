@@ -22,6 +22,12 @@ export default function MyPageScreen() {
   const [newAllergy, setNewAllergy] = useState('');
   const [profilePicture, setProfilePicture] = useState('');
 
+  const disclaimerText = "Disclaimer: This app does not provide medical advice. All medication and allergy information is entered by the user. The warning shown is based solely on name matching and is not a substitute for professional medical judgment. Always consult your doctor or pharmacist before taking any medication."
+
+  const citationText = "For reliable information about medications, you can visit MedlinePlus, a service of the U.S. National Library of Medicine."
+
+  const citationURL = "https://medlineplus.gov/druginformation.html"
+
   useEffect(() => {
     loadUserData();
   }, []);
@@ -146,6 +152,7 @@ export default function MyPageScreen() {
             Allergies & Medications to Avoid
           </Text>
 
+
           {allergies.length > 0 ? (
             allergies.map((item, i) => (
               <View key={i} style={styles.allergyItem}>
@@ -180,6 +187,8 @@ export default function MyPageScreen() {
           </View>
 
           <View style={{ height: 60 }} />
+          <Text style={styles.disclaimerText}>{disclaimerText}</Text>
+          <Text style={styles.citationText} onPress={() => Linking.openURL(citationURL)}>{citationText}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -343,5 +352,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  citationText: {
+    fontSize: 12,
+    color: '#3B82F6',
+    textDecorationLine: 'underline',
+    marginBottom: 10,
   },
 });

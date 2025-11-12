@@ -150,9 +150,9 @@ export default function EditMedicationScreen() {
     if (!date) return 'Set time';
     return date instanceof Date
       ? `${date.getHours().toString().padStart(2, '0')}:${date
-          .getMinutes()
-          .toString()
-          .padStart(2, '0')}`
+        .getMinutes()
+        .toString()
+        .padStart(2, '0')}`
       : 'Set time';
   };
 
@@ -215,7 +215,7 @@ export default function EditMedicationScreen() {
       triggerDate.setHours(date.getHours(), date.getMinutes(), 0, 0);
       if (triggerDate <= now) triggerDate.setDate(triggerDate.getDate() + 1);
 
- const trigger = {
+      const trigger = {
         type: 'daily',
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
@@ -303,7 +303,7 @@ export default function EditMedicationScreen() {
     if (allergyMatch) {
       Alert.alert(
         'Allergy Warning',
-        `Warning: "${name.trim()}" appears in your allergies list. Continue saving?`,
+        `Warning: "${name.trim()}" matches one in your allergy list. Please confirm with your doctor or pharmacist.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {

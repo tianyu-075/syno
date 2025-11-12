@@ -104,7 +104,7 @@ export default function MedicationsScreen() {
       if (triggerDate <= new Date())
         triggerDate.setDate(triggerDate.getDate() + 1);
 
- const trigger = {
+      const trigger = {
         type: 'daily',
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
@@ -152,7 +152,7 @@ export default function MedicationsScreen() {
     if (matchingAllergy) {
       Alert.alert(
         'Allergy Warning',
-        `Warning: "${name.trim()}" appears in your allergies list. Continue?`,
+        `Warning: "${name.trim()}" matches one in your allergy list. Please confirm with your doctor or pharmacist.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
