@@ -12,6 +12,10 @@ import EditMedicationScreen from './screens/EditMedicationScreen';
 import PillScreen from './screens/PillScreen';
 import UserPicture from './screens/UserPicture';
 
+
+
+
+
 const Stack = createStackNavigator();
 
 Notifications.setNotificationHandler({
