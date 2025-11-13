@@ -129,21 +129,22 @@ export default function EditMedicationScreen() {
   };
 
   const deleteTime = async (id) => {
-    if (times.length > 1) {
-      const timeToDelete = times.find((t) => t.id === id);
-      if (timeToDelete?.notificationId) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(
-            timeToDelete.notificationId
-          );
-        } catch (e) {
-          console.warn('Cancel notification error', e);
-        }
+    setTimes((prev) => {
+      if (prev.length <= 1) {
+        Alert.alert('Cannot Delete', 'At least one time slot is required.');
+        return prev;
       }
-      setTimes((prev) => prev.filter((t) => t.id !== id));
-    } else {
-      Alert.alert('Cannot Delete', 'At least one time slot is required.');
-    }
+
+      const timeToDelete = prev.find((t) => t.id === id);
+      if (timeToDelete?.notificationId) {
+        Notifications.cancelScheduledNotificationAsync(timeToDelete.notificationId)
+          .catch((e) => console.warn('Cancel notification error', e));
+      }
+
+      const updatedTimes = prev.filter((t) => t.id !== id);
+      setHasUnsavedChanges(true);
+      return updatedTimes;
+    });
   };
 
   const formatTime = (date) => {
