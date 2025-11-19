@@ -35,8 +35,6 @@
 ---
 
 ❤️ Motivation
--I created Syno after seeing how challenging it was to manage daily medications for a loved one.
--This app aims to make a real difference by helping people stay organized and healthy. 
--I hope it can help as many people as possible, making their daily routines a little easier.
+- I created Syno after seeing how challenging it was to manage daily medications for a loved one.This app aims to make a real difference by helping people stay organized and healthy.I hope it can help as many people as possible, making their daily routines a little easier.
 
 ---
